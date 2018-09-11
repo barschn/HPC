@@ -1,0 +1,246 @@
+<script type="text/javascript" async="" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-MML-AM_CHTML">
+</script>
+
+<h1 id="assignment-report-0">Assignment report 0</h1>
+
+<h2 id="installing-and-testing-flint-and-arb">Installing and testing FLINT and Arb</h2>
+<p>To make sure that we compile to the native architecture of Gantenbein, we use the flag <code>-march=native</code> with <code>gcc</code>. We also make sure that we compile according to the C11 standard by passing the flag <code>-std=c11</code>. Finally, to make sure that Flint and Arb gets installed to <code>local_flint</code> and <code>local_arb</code> respectively, we use the <code>--prefix</code> option with <code>./configure</code>. I. e., we run</p>
+
+<blockquote>
+  <p><code>./configure --prefix=/home/tobias/local_flint CFLAGS='-std=c11 -march=native'</code></p>
+</blockquote>
+
+<p>The flag <code>-march=native</code> does more than just compile for 64-bit or 32-bit. With this flag</p>
+
+<blockquote>
+  <p><code>gcc</code> will attempt to detect the processor and automatically set appropriate flags for it</p>
+</blockquote>
+
+<p>see <a href="https://wiki.gentoo.org/wiki/GCC_optimization#-march">here</a>. Also, when building Arb, we need to specify where Flint is, and we do this by passing <code>--with-flint=/home/tobias/local_flint</code> to <code>./configure</code> in addition to the above. After the configure, just run <code>make &amp;&amp; make install</code> and <code>make check</code> if you also want to run the tests.</p>
+
+<p>To make sure all libraries and headers can be found, we need to export <code>/home/tobias/local_flint</code> and <code>/home/tobias/local_arb</code> to <code>LD_LIBRARY_PATH</code> so that the shared libraries can be found. This can be done be executing <code>export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:&lt;path to library&gt;</code> for both <code>/home/tobias/local_flint</code> and <code>/home/tobias/local_arb</code>. See <a href="https://stackoverflow.com/questions/32550654/libarb-so-cannot-open-shared-object-file-no-such-file-or-directory">here</a>.</p>
+
+<p>If you’d in addition to the above would like to run some proper tests, you could copy <code>/arb-2.14.0/examples/poly_roots.c</code> to some appropriate place and write a <code>makefile</code> on the following form</p>
+
+<pre><code class="language-make">all : poly_roots
+
+poly_roots : poly_roots.c
+        gcc -o poly_roots -L/home/tobias/local_flint/lib -L/home/tobias/local_arb/lib -I/home/tobias/local_flint/include -I/home/tobias/local_arb/include poly_roots.c -lflint -larb
+</code></pre>
+
+<p>We can now run <code>poly_roots</code> as follows</p>
+
+<pre><code class="language-console">[tobias@gantenbein arb_example]$ ./poly_roots 
+poly_roots [-refine d] [-print d] &lt;poly&gt;
+
+Isolates all the complex roots of a polynomial with integer coefficients.
+
+If -refine d is passed, the roots are refined to a relative tolerance
+better than 10^(-d). By default, the roots are only computed to sufficient
+accuracy to isolate them. The refinement is not currently done efficiently.
+
+If -print d is passed, the computed roots are printed to d decimals.
+By default, the roots are not printed.
+
+The polynomial can be specified by passing the following as &lt;poly&gt;:
+
+a &lt;n&gt;          Easy polynomial 1 + 2x + ... + (n+1)x^n
+t &lt;n&gt;          Chebyshev polynomial T_n
+u &lt;n&gt;          Chebyshev polynomial U_n
+p &lt;n&gt;          Legendre polynomial P_n
+c &lt;n&gt;          Cyclotomic polynomial Phi_n
+s &lt;n&gt;          Swinnerton-Dyer polynomial S_n
+b &lt;n&gt;          Bernoulli polynomial B_n
+w &lt;n&gt;          Wilkinson polynomial W_n
+e &lt;n&gt;          Taylor series of exp(x) truncated to degree n
+m &lt;n&gt; &lt;m&gt;      The Mignotte-like polynomial x^n + (100x+1)^m, n &gt; m
+coeffs &lt;c0 c1 ... cn&gt;        c0 + c1 x + ... + cn x^n
+
+Concatenate to multiply polynomials, e.g.: p 5 t 6 coeffs 1 2 3
+for P_5(x)*T_6(x)*(1+2x+3x^2)
+</code></pre>
+
+<p>So, here’s an example output</p>
+
+<pre><code class="language-console">[tobias@gantenbein arb_example]$ ./poly_roots a 1 -print 10
+computing squarefree factorization...
+cpu/wall(s): 0 0
+1 roots with multiplicity 1
+searching for 1 roots, 1 deflated
+prec=32: 1 isolated roots | cpu/wall(s): 0 0
+done!
+-0.5000000000
+cpu/wall(s): 0.001 0.001
+</code></pre>
+
+<h2 id="basic-c-programming">Basic C programming</h2>
+
+<p>My code can be found in <code>./basic_c_programming/</code>. We compile with optimization level 1 by passing the flag <code>-O1</code> to <code>gcc</code>.</p>
+
+<h3 id="stack-and-heap-allocation">Stack and heap allocation</h3>
+<p>The program fails with a segfault when <code>SIZE</code> is 2500000. How can we explain this theoretically? Using the command <code>ulimit -s</code> we can get the maximum stack size (see e. g. <a href="https://ss64.com/bash/ulimit.html">here</a>) in terms of KiB. In our case, we get that the maximum stack size is 8192 KiB.</p>
+
+<p>In addition, the following mini program prints the size of an <code>int</code> in bytes.</p>
+
+<pre><code class="language-c">#include &lt;stdio.h&gt;
+
+void main(){
+        printf("%d bytes\n",sizeof(int));
+}
+</code></pre>
+
+<p>and we see that it is 4 bytes. Hence the program should segfault precisely when</p>
+
+<script type="math/tex; mode=display">\begin{align*}
+s>\frac{8192\cdot 1024}{4}=2097152
+\end{align*}</script>
+
+<p>where <script type="math/tex">s</script> is <code>SIZE</code>. This seems to be roughly the case, when <script type="math/tex">s=2094200</script> the program segfaults most of the time, but not always. As <script type="math/tex">s</script> increases above this, segfaults become more and more frequent. The reason for why it segfaults before our prediction, is probably due to the stack already being partly occupied.</p>
+
+<p>It’s indeed the case, that when allocating on the heap using <code>malloc</code>, the program doesn’t segfault for the above sizes. It’s hard to find out the precise limit for when we’d segfault while allocating on the heap. Indeed, <code>ulimit -a</code> returns (among other data)</p>
+
+<blockquote>
+  <p><code>max memory size         (kbytes, -m) unlimited</code></p>
+</blockquote>
+
+<h3 id="memory-fragmentation">Memory fragmentation</h3>
+
+<p>Below I have included the source code for two programs that initializes a square matrix of size 10 containing <code>int</code> entries. In the first program, the memory is allocated in ad-hoc way; and in the second program, it is allocated in a contiguous block.</p>
+
+<p>The comments in the code explain the meaning of all variables, and below the code I have included a visualization of the memory is allocated in both cases.</p>
+
+<pre><code class="language-c">//Fragmented
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+
+#define SIZE 10
+void main(){
+	//Fragmented allocation
+	int ** as = (int**) malloc(sizeof(int*) * SIZE); //Allocate memory for SIZE many pointers to integers. Return a pointer to the first of these. The input is in bytes.
+	for ( size_t ix = 0; ix &lt; SIZE; ++ix ){
+  		as[ix] = (int*) malloc(sizeof(int) * SIZE);  //Allocate memory for SIZE many integers. Return a pointer to the first of these.
+	}
+
+	for ( size_t ix = 0; ix &lt; SIZE; ++ix ){
+  		for ( size_t jx = 0; jx &lt; SIZE; ++jx ){
+    			as[ix][jx] = 0; //Same as "*(as[ix] + jx)=0" which is the same as "*(*(as + ix) + jx)=0". The meaning is, store the value zero at the address "*(as + ix) + jx".
+		}
+	}
+
+	printf("%d\n", as[0][0]);
+
+	for ( size_t ix = 0; ix &lt; SIZE; ++ix ){
+    		free(as[ix]); //Free the memory containing the integers
+	}
+	free(as); //Free the memory containing the pointers.
+}
+</code></pre>
+
+<p>N. B. Recall that the value of a pointer is an address in memory.</p>
+
+<p>In the visualization below, we assume that <code>SIZE</code> is 3.</p>
+
+<p><img src="./fragged.png" alt="alt-text" title="Visualization" /></p>
+
+<pre><code class="language-c">//Contiguous
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+
+#define SIZE 10
+void main(){
+	int * asentries = (int*) malloc(sizeof(int) * SIZE*SIZE); //Allocate memory for SIZE*SIZE many integers. Return a pointer to the first of these.
+	int ** as = (int**) malloc(sizeof(int*) * SIZE); //Allocate memory for SIZE many pointers to integers. Return a pointer to the first of these.
+	for ( size_t ix = 0, jx = 0; ix &lt; SIZE; ++ix, jx+=SIZE ){
+  		as[ix] = asentries + jx; //Store the address "asentries+jx" at the address "as+ix". Note that jx increases in multiples of SIZE, so that its value is in fact ix*SIZE.
+	}
+
+	for ( size_t ix = 0; ix &lt; SIZE; ++ix ){
+  		for ( size_t jx = 0; jx &lt; SIZE; ++jx ){
+    			as[ix][jx] = 0; //Store the value zero at the address *(as+ix)+jx, i. e. at the address asentries+ix*SIZE+jx.
+		}
+	}
+
+	printf("%d\n", as[0][0]);
+
+	free(as); //Free the memory containing the pointers.
+	free(asentries); //Free the memory containing the integers.
+}
+</code></pre>
+
+<p>Again we assume <code>SIZE</code> to be 3 in the visualization below.</p>
+
+<p><img src="./defragged.png" alt="alt-text" title="Visualization" /></p>
+
+<p>Note that with some basic arithmetic it’s unnecessary to store the <code>as</code> array. That would’ve saved us <script type="math/tex">80</script> bytes :)</p>
+
+<h3 id="writing-to-files">Writing to files</h3>
+
+<p>Using contiguous allocation, I’ve the following program.</p>
+
+<pre><code class="language-c">include &lt;stdio.h&gt;
+#include &lt;string.h&gt;
+#include &lt;stdlib.h&gt;
+
+#define SIZE 10
+
+void main(){
+        FILE * matrixfile;
+        matrixfile=fopen("matrix.txt","w"); //Open ./matrix.txt for writing
+        int * asentries = (int*)malloc(sizeof(int)*SIZE*SIZE);
+        int ** as = (int**)malloc(sizeof(int*)*SIZE); //Just for the comfort of double indices. Not in fact needed.
+        //Don't forget to initialize! Otherwise we'll segfault.
+        for (size_t ix=0, jx=0; ix&lt;SIZE; ++ix,jx+=SIZE)
+                as[ix]=asentries+jx;
+
+        for (size_t ix=0; ix&lt;SIZE; ++ix){
+                for (size_t jx=0; jx&lt;SIZE; ++jx){
+                        scanf("%d",&amp;as[ix][jx]);
+                        fprintf(matrixfile,"%d ",as[ix][jx]); //Put as[ix][jx] in the buffer
+                }
+                printf("changing row\n");
+                fprintf(matrixfile,"\n"); //Put as[ix][jx] in the buffer
+                fflush(matrixfile); //Write what's in the buffer to file
+        }
+        fclose(matrixfile); //Close the file
+        matrixfile=fopen("matrix.txt","r"); //Open it again, for reading
+        int * current =(int*)malloc(sizeof(int)); //Allocate some memory for a variable to store the current value being read. Not necessary to have it on the heap!
+        int areequal = 0;
+        for (size_t ix=0; ix&lt;SIZE; ++ix){
+                for (size_t jx=0; jx&lt;SIZE; ++jx){
+                        fscanf(matrixfile,"%d",current);
+                        areequal = *current == as[ix][jx];
+                        printf(areequal ? "are equal\n" : "aren't equal\n");
+                }
+        }
+        fclose(matrixfile);
+        free(as);
+        free(asentries);
+}
+</code></pre>
+
+<p>Non-contiguously, it looks similar. The point is however that there is no difference in performance using contiguous or non-contiguous allocation.</p>
+
+<h3 id="parsing-command-line-arguments">Parsing command line arguments</h3>
+
+<p>In the below program I’m assuming an “intelligent” user, i. e. one who only inputs valid arguments.</p>
+
+<pre><code class="language-c">#include &lt;stdio.h&gt;
+#include &lt;string.h&gt;
+#include &lt;stdlib.h&gt;
+
+void main(int argc, char *argv[]){
+        char cmp[] = "-a";
+        int ais = 0;
+        int bis = 0;
+        if (strcmp(argv[1],cmp) == 0){
+                ais=strtol(argv[2],NULL,10);
+                bis=strtol(argv[4],NULL,10);
+        } else {
+                ais=strtol(argv[4],NULL,10);
+                bis=strtol(argv[2],NULL,10);
+        }
+        printf("A is %d and B is %d\n",ais,bis);
+}
+</code></pre>
+
+<p>Should one wish to, it’d be pretty easy to implement some error management into the above, but in my opinion that’s unnecessary.</p>
