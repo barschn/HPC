@@ -1,3 +1,5 @@
+.PHONY : all
+
 ARG=3
 
 all : opt0 opt1 opt2 opt3 opts optg
