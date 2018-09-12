@@ -4,23 +4,25 @@
 
 #define SIZE 30000
 
-void mul_cpx_mainfile(double * a_re, double * a_im, double * b_re, double * b_im, double * c_re, double * c_im){
-	*a_re = (*b_re)*(*c_re)-(*b_im)*(*c_im);
-	*a_im = (*b_re)*(*c_im)+(*b_im)*(*c_re);
-}
+//Inlining this sucker.
+//void mul_cpx_mainfile(double * a_re, double * a_im, double * b_re, double * b_im, double * c_re, double * c_im){
+//	*a_re = (*b_re)*(*c_re)-(*b_im)*(*c_im);
+//	*a_im = (*b_re)*(*c_im)+(*b_im)*(*c_re);
+//}
 
 void main(){
 	struct timespec start,stop;
-	printf("This is mainfile. I multiply complex numbers together.\n");
+	printf("This is inlined. I multiply complex numbers together.\n");
 	double * ares = (double *) malloc(sizeof(double)*SIZE);
 	double * aims = (double *) malloc(sizeof(double)*SIZE);
 	double * bres = (double *) malloc(sizeof(double)*SIZE);
 	double * bims = (double *) malloc(sizeof(double)*SIZE);
 	double * cres = (double *) malloc(sizeof(double)*SIZE);
 	double * cims = (double *) malloc(sizeof(double)*SIZE);
+	//Generating entries for b and c
 	
 	long double elapsed;
-	
+
 	timespec_get(&start, TIME_UTC);
 	//Generating entries for b and c
 	for (size_t i=0; i<SIZE; ++i){
@@ -34,8 +36,13 @@ void main(){
 	printf("Took %Lf10 secs to generate.\n",elapsed);
 	
 	timespec_get(&start, TIME_UTC);
-	for (size_t i=0; i<SIZE; ++i)
-		mul_cpx_mainfile(ares+i, aims+i, bres+i, bims+i, cres+i, cims+i);
+	for (size_t i=0; i<SIZE; ++i){
+		//Did this before.
+		//mul_cpx_mainfile(ares+i, aims+i, bres+i, bims+i, cres+i, cims+i);
+		//Corresponds to this.
+		*(ares + i) = (*(bres + i))*(*(cres + i)) - (*(bims + i))*(*(cims + i));
+		*(aims + i) = (*(bres + i))*(*(cims + i)) + (*(bims + i))*(*(cres + i));
+	}
 	timespec_get(&stop, TIME_UTC);
 	elapsed=(stop.tv_sec+1.0e-9*stop.tv_nsec)-(start.tv_sec+1.0e-9*start.tv_nsec);
 	printf("Took %Lf10 secs to compute.\n",elapsed);
