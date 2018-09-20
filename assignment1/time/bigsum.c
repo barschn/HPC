@@ -17,13 +17,13 @@ void main(int argc, char *argv[]){
 		timespec_get(&stop, TIME_UTC);
 		printf("Result: %ld\n",S);
 		elapsed=(stop.tv_sec+1.0e-9*stop.tv_nsec)-(start.tv_sec+1.0e-9*start.tv_nsec);	
-		printf("Took %Lf10 secs\n",elapsed);
+		printf("Took %.15Lf secs\n",elapsed);
 		S=0;	
 	}
 	timespec_get(&absstop, TIME_UTC);
 	elapsed=(absstop.tv_sec+1.0e-9*absstop.tv_nsec)-(absstart.tv_sec+1.0e-9*absstart.tv_nsec);
-	printf("Total time %Lf10 secs\n",elapsed);
-	printf("Average time %Lf10 secs\n",elapsed/reps);
+	printf("Total time %.15Lf secs\n",elapsed);
+	printf("Average time %.15Lf secs\n",elapsed/reps);
 	exit(0); //Need to return stuff, if you don't return 0 make will assume error
 	//Returning 1 will make (or bash) not run stuff afterwards
 }

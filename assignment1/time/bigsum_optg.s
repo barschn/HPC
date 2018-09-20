@@ -4,11 +4,11 @@
 .LC0:
 	.string	"Result: %ld\n"
 .LC2:
-	.string	"Took %Lf10 secs\n"
+	.string	"Took %.15Lf secs\n"
 .LC3:
-	.string	"Total time %Lf10 secs\n"
+	.string	"Total time %.15Lf secs\n"
 .LC4:
-	.string	"Average time %Lf10 secs\n"
+	.string	"Average time %.15Lf secs\n"
 	.text
 	.globl	main
 	.type	main, @function
