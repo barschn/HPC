@@ -5,7 +5,7 @@
 #define SIZE 1000
 
 //Was const double **, but that didn't work
-void row_sums(double * sums, double ** matrix, size_t nrs, size_t ncs){
+void row_sums(double * sums, const double ** matrix, size_t nrs, size_t ncs){
   for ( size_t ix=0; ix < nrs; ++ix ) {
     double sum = 0;
     for ( size_t jx=0; jx < ncs; ++jx )
@@ -15,7 +15,7 @@ void row_sums(double * sums, double ** matrix, size_t nrs, size_t ncs){
 }
 
 //Was const double **, but that didn't work
-void col_sums(double * sums, double ** matrix, size_t nrs, size_t ncs){
+void col_sums(double * sums, const double ** matrix, size_t nrs, size_t ncs){
   for ( size_t jx=0; jx < ncs; ++jx ) {
     double sum = 0;
     for ( size_t ix=0; ix < nrs; ++ix )
@@ -26,7 +26,7 @@ void col_sums(double * sums, double ** matrix, size_t nrs, size_t ncs){
 
 //This should be faster as it accesses the memory linearly
 //We do however look up csums quite often, so maybe not
-void rowcol_sums(double *rsums, double *csums, double ** matrix, size_t nrs, size_t ncs){
+void rowcol_sums(double *rsums, double *csums, const double ** matrix, size_t nrs, size_t ncs){
 	double current;
 	double sum = 0;
 	for (size_t ix=0; ix<nrs; ++ix){
@@ -48,8 +48,9 @@ void main(){
 	//Was
 	//const double ** mat = (const double **)malloc(sizeof(double*)*SIZE);
 	//But then I couldn't change the values
-	double ** mat = (double **)malloc(sizeof(double*)*SIZE);
-		
+	const double ** mat = (const double **)malloc(sizeof(double*)*SIZE); //Kan inte ändra härifrån det som står på adressen. Så mat[i][j]=1 är ogiltigt. Men får ändra på pointern mat[i].
+	//Är det samma för const double *** o. s. v. Alltså att mat[i], mat[j] kan ändras, men inte mat[i][j][k]?
+			
 	//Row major order, i. e.
 	//a11 a12 a13 a21 a22 a23 a31 a32 a33
 	//for SIZE=3
@@ -57,9 +58,8 @@ void main(){
 	for (size_t i = 0, j=0; i<SIZE; ++i, j+=SIZE)
 		mat[i] = fmat + j;
 	//Filling the matrix with ones, because why not?
-	for (size_t i = 0; i<SIZE; ++i)
-		for (size_t j = 0; j<SIZE; ++j)
-			mat[i][j]=1;
+	for (size_t k = 0; k<SIZE*SIZE; ++k)
+		*(fmat+k)=1;
 	
 	double * sums = (double *)malloc(sizeof(double)*SIZE);
 	double * sums2 = (double *)malloc(sizeof(double)*SIZE);

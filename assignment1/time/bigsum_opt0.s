@@ -2,11 +2,13 @@
 	.text
 	.section	.rodata
 .LC0:
-	.string	"Result: %d\n"
+	.string	"Result: %ld\n"
 .LC2:
 	.string	"Took %Lf10 secs\n"
 .LC3:
 	.string	"Total time %Lf10 secs\n"
+.LC4:
+	.string	"Average time %Lf10 secs\n"
 	.text
 	.globl	main
 	.type	main, @function
@@ -21,7 +23,7 @@ main:
 	subq	$144, %rsp
 	movl	%edi, -116(%rbp)
 	movq	%rsi, -128(%rbp)
-	movl	$0, -4(%rbp)
+	movq	$0, -8(%rbp)
 	movq	-128(%rbp), %rax
 	addq	$8, %rax
 	movq	(%rax), %rax
@@ -44,11 +46,10 @@ main:
 	movq	$0, -24(%rbp)
 	jmp	.L3
 .L4:
+	movq	-8(%rbp), %rdx
 	movq	-24(%rbp), %rax
-	movl	%eax, %edx
-	movl	-4(%rbp), %eax
-	addl	%edx, %eax
-	movl	%eax, -4(%rbp)
+	addq	%rdx, %rax
+	movq	%rax, -8(%rbp)
 	addq	$1, -24(%rbp)
 .L3:
 	cmpq	$999999999, -24(%rbp)
@@ -57,8 +58,8 @@ main:
 	movl	$1, %esi
 	movq	%rax, %rdi
 	call	timespec_get
-	movl	-4(%rbp), %eax
-	movl	%eax, %esi
+	movq	-8(%rbp), %rax
+	movq	%rax, %rsi
 	movl	$.LC0, %edi
 	movl	$0, %eax
 	call	printf
@@ -86,7 +87,7 @@ main:
 	movl	$0, %eax
 	call	printf
 	addq	$16, %rsp
-	movl	$0, -4(%rbp)
+	movq	$0, -8(%rbp)
 	addq	$1, -16(%rbp)
 .L2:
 	movl	-28(%rbp), %eax
@@ -118,6 +119,15 @@ main:
 	pushq	-40(%rbp)
 	pushq	-48(%rbp)
 	movl	$.LC3, %edi
+	movl	$0, %eax
+	call	printf
+	addq	$16, %rsp
+	fildl	-28(%rbp)
+	fldt	-48(%rbp)
+	fdivp	%st, %st(1)
+	leaq	-16(%rsp), %rsp
+	fstpt	(%rsp)
+	movl	$.LC4, %edi
 	movl	$0, %eax
 	call	printf
 	addq	$16, %rsp

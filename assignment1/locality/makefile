@@ -1,7 +1,7 @@
-CFLAGS=-std=c11 -march=native
+CFLAGS=-std=c11 -march=native -pg
 TARGETS=locality locality_fast
 
-.PHONY : all clean check
+.PHONY : all check
 
 all : $(TARGETS)
 
@@ -11,13 +11,8 @@ locality : locality.c
 
 locality_fast : locality_fast.c	
 	gcc $(CFLAGS) -O0 -o locality_fast0 locality_fast.c
+	gcc $(CFLAGS) -O0 -ftest-coverage -fprofile-arcs -o locality_fast0_cov locality_fast.c
 	gcc $(CFLAGS) -O2 -o locality_fast2 locality_fast.c
-	
-clean :
-	echo "Cleaning up"
-	rm -f $(TARGETS)
-	rm -f *.o
-	rm -f *.a
 
 check :
 	echo "Slow, -O0"

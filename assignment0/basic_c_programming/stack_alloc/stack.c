@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#define SIZE 2097152
+#define SIZE 2094200
 
 
 void main() {
