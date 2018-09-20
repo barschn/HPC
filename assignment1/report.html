@@ -1,0 +1,183 @@
+<script type="text/javascript" async="" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-MML-AM_CHTML">
+</script>
+
+<h1 id="assignment-report-1">Assignment report 1</h1>
+
+<p>What follows is a report of Tobias Magnusson and Henrik Imbergs solution of assignment 1.</p>
+
+<h2 id="time">Time</h2>
+
+<p>In this part we implement a program consisting of nested loops. In the inner loop, we compute the sum of the first billion integers, and in the outer loop we write the sum to <code>stdout</code> and time every iteration. We also, for good measure, time the total and average execution time.</p>
+
+<div class="language-C highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"> <a href="#n1" name="n1">1</a></span><span style="color:#088;font-weight:bold">void</span> main(<span style="color:#0a8;font-weight:bold">int</span> argc, <span style="color:#0a8;font-weight:bold">char</span> *argv[]){
+<span class="line-numbers"> <a href="#n2" name="n2">2</a></span>        <span style="color:#080;font-weight:bold">struct</span> timespec start,stop,absstart,absstop;
+<span class="line-numbers"> <a href="#n3" name="n3">3</a></span>        <span style="color:#0a8;font-weight:bold">long</span> S=<span style="color:#00D">0</span>;
+<span class="line-numbers"> <a href="#n4" name="n4">4</a></span>        <span style="color:#0a8;font-weight:bold">int</span> reps=strtol(argv[<span style="color:#00D">1</span>],<span style="color:#069">NULL</span>,<span style="color:#00D">10</span>);
+<span class="line-numbers"> <a href="#n5" name="n5">5</a></span>        <span style="color:#0a8;font-weight:bold">long</span> <span style="color:#0a8;font-weight:bold">double</span> elapsed;
+<span class="line-numbers"> <a href="#n6" name="n6">6</a></span>        timespec_get(&amp;absstart, TIME_UTC);
+<span class="line-numbers"> <a href="#n7" name="n7">7</a></span>        <span style="color:#080;font-weight:bold">for</span>(size_t n=<span style="color:#00D">0</span>; n&lt;reps; ++n){
+<span class="line-numbers"> <a href="#n8" name="n8">8</a></span>                timespec_get(&amp;start, TIME_UTC);
+<span class="line-numbers"> <a href="#n9" name="n9">9</a></span>                <span style="color:#080;font-weight:bold">for</span>(size_t i=<span style="color:#00D">0</span>; i&lt;SIZE; ++i)
+<span class="line-numbers"><strong><a href="#n10" name="n10">10</a></strong></span>                        S+=i;
+<span class="line-numbers"><a href="#n11" name="n11">11</a></span>                timespec_get(&amp;stop, TIME_UTC);
+<span class="line-numbers"><a href="#n12" name="n12">12</a></span>                printf(<span style="background-color:hsla(0,100%,50%,0.05)"><span style="color:#710">&quot;</span><span style="color:#D20">Result: %ld</span><span style="color:#b0b">\n</span><span style="color:#710">&quot;</span></span>,S);
+<span class="line-numbers"><a href="#n13" name="n13">13</a></span>                elapsed=(stop.tv_sec+<span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*stop.tv_nsec)-(start.tv_sec+<span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*start.tv_nsec);
+<span class="line-numbers"><a href="#n14" name="n14">14</a></span>                printf(<span style="background-color:hsla(0,100%,50%,0.05)"><span style="color:#710">&quot;</span><span style="color:#D20">Took %.15Lf secs</span><span style="color:#b0b">\n</span><span style="color:#710">&quot;</span></span>,elapsed);
+<span class="line-numbers"><a href="#n15" name="n15">15</a></span>                S=<span style="color:#00D">0</span>;
+<span class="line-numbers"><a href="#n16" name="n16">16</a></span>        }
+<span class="line-numbers"><a href="#n17" name="n17">17</a></span>        timespec_get(&amp;absstop, TIME_UTC);
+<span class="line-numbers"><a href="#n18" name="n18">18</a></span>        elapsed=(absstop.tv_sec+<span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*absstop.tv_nsec)-(absstart.tv_sec+<span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*absstart.tv_nsec);
+<span class="line-numbers"><a href="#n19" name="n19">19</a></span>        printf(<span style="background-color:hsla(0,100%,50%,0.05)"><span style="color:#710">&quot;</span><span style="color:#D20">Total time %.15Lf secs</span><span style="color:#b0b">\n</span><span style="color:#710">&quot;</span></span>,elapsed);
+<span class="line-numbers"><strong><a href="#n20" name="n20">20</a></strong></span>        printf(<span style="background-color:hsla(0,100%,50%,0.05)"><span style="color:#710">&quot;</span><span style="color:#D20">Average time %.15Lf secs</span><span style="color:#b0b">\n</span><span style="color:#710">&quot;</span></span>,elapsed/reps);
+<span class="line-numbers"><a href="#n21" name="n21">21</a></span>        exit(<span style="color:#00D">0</span>); <span style="color:#777">//Need to return stuff, if you don't return 0 make will assume error</span>
+<span class="line-numbers"><a href="#n22" name="n22">22</a></span>        <span style="color:#777">//Returning 1 will make (or bash) not run stuff afterwards</span>
+<span class="line-numbers"><a href="#n23" name="n23">23</a></span>}
+</pre></div>
+</div>
+</div>
+
+<p>We compile this program with all possible optimization levels and generate assembler code. See the <code>makefile</code> below.</p>
+
+<div class="language-make highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"> <a href="#n1" name="n1">1</a></span>.PHONY : all
+<span class="line-numbers"> <a href="#n2" name="n2">2</a></span>
+<span class="line-numbers"> <a href="#n3" name="n3">3</a></span>ARG=3
+<span class="line-numbers"> <a href="#n4" name="n4">4</a></span>
+<span class="line-numbers"> <a href="#n5" name="n5">5</a></span>all : opt0 opt1 opt2 opt3 opts optg
+<span class="line-numbers"> <a href="#n6" name="n6">6</a></span>
+<span class="line-numbers"> <a href="#n7" name="n7">7</a></span>opt0 : bigsum.c
+<span class="line-numbers"> <a href="#n8" name="n8">8</a></span>        gcc -S -O0 bigsum.c -o bigsum_opt0.s
+<span class="line-numbers"> <a href="#n9" name="n9">9</a></span>        gcc -O0 bigsum.c -o bigsum_opt0
+<span class="line-numbers"><strong><a href="#n10" name="n10">10</a></strong></span>
+<span class="line-numbers"><a href="#n11" name="n11">11</a></span>opt1 : bigsum.c
+<span class="line-numbers"><a href="#n12" name="n12">12</a></span>        gcc -S -O1 bigsum.c -o bigsum_opt1.s
+<span class="line-numbers"><a href="#n13" name="n13">13</a></span>        gcc -O1 bigsum.c -o bigsum_opt1
+<span class="line-numbers"><a href="#n14" name="n14">14</a></span>
+<span class="line-numbers"><a href="#n15" name="n15">15</a></span>opt2 : bigsum.c
+<span class="line-numbers"><a href="#n16" name="n16">16</a></span>        gcc -S -O2 bigsum.c -o bigsum_opt2.s
+<span class="line-numbers"><a href="#n17" name="n17">17</a></span>        gcc -O2 bigsum.c -o bigsum_opt2
+<span class="line-numbers"><a href="#n18" name="n18">18</a></span>
+<span class="line-numbers"><a href="#n19" name="n19">19</a></span>opt3 : bigsum.c
+<span class="line-numbers"><strong><a href="#n20" name="n20">20</a></strong></span>        gcc -S -O3 bigsum.c -o bigsum_opt3.s
+<span class="line-numbers"><a href="#n21" name="n21">21</a></span>        gcc -O3 bigsum.c -o bigsum_opt3
+<span class="line-numbers"><a href="#n22" name="n22">22</a></span>
+<span class="line-numbers"><a href="#n23" name="n23">23</a></span>opts : bigsum.c
+<span class="line-numbers"><a href="#n24" name="n24">24</a></span>        gcc -S -Os bigsum.c -o bigsum_opts.s
+<span class="line-numbers"><a href="#n25" name="n25">25</a></span>        gcc -Os bigsum.c -o bigsum_opts
+<span class="line-numbers"><a href="#n26" name="n26">26</a></span>
+<span class="line-numbers"><a href="#n27" name="n27">27</a></span>optg : bigsum.c
+<span class="line-numbers"><a href="#n28" name="n28">28</a></span>        gcc -S -Og bigsum.c -o bigsum_optg.s
+<span class="line-numbers"><a href="#n29" name="n29">29</a></span>        gcc -Og bigsum.c -o bigsum_optg
+<span class="line-numbers"><strong><a href="#n30" name="n30">30</a></strong></span>clean :
+<span class="line-numbers"><a href="#n31" name="n31">31</a></span>        rm -f bigsum_*
+<span class="line-numbers"><a href="#n32" name="n32">32</a></span>
+<span class="line-numbers"><a href="#n33" name="n33">33</a></span>check :
+<span class="line-numbers"><a href="#n34" name="n34">34</a></span>        ./bigsum_opt0 $(ARG)
+<span class="line-numbers"><a href="#n35" name="n35">35</a></span>        ./bigsum_opt1 $(ARG)
+<span class="line-numbers"><a href="#n36" name="n36">36</a></span>        ./bigsum_opt2 $(ARG)
+<span class="line-numbers"><a href="#n37" name="n37">37</a></span>        ./bigsum_opt3 $(ARG)
+<span class="line-numbers"><a href="#n38" name="n38">38</a></span>        ./bigsum_opts $(ARG)
+<span class="line-numbers"><a href="#n39" name="n39">39</a></span>        ./bigsum_optg $(ARG)
+</pre></div>
+</div>
+</div>
+
+<p>Running <code>make check</code> we may get something along the lines of what follows below.</p>
+
+<pre><code>./bigsum_opt0 3
+Result: 499999999500000000
+Took 1.713405370712280 secs
+Result: 499999999500000000
+Took 1.703644275665283 secs
+Result: 499999999500000000
+Took 1.702723503112793 secs
+Total time 5.119848489761353 secs
+Average time 1.706616163253784 secs
+./bigsum_opt1 3
+Result: 499999999500000000
+Took 0.300299644470215 secs
+Result: 499999999500000000
+Took 0.287335634231567 secs
+Result: 499999999500000000
+Took 0.287215232849121 secs
+Total time 0.874917984008789 secs
+Average time 0.291639328002930 secs
+./bigsum_opt2 3
+Result: 499999999500000000
+Took 0.000000000000000 secs
+Result: 499999999500000000
+Took 0.000000238418579 secs
+Result: 499999999500000000
+Took 0.000000000000000 secs
+Total time 0.000106811523438 secs
+Average time 0.000035603841146 secs
+./bigsum_opt3 3
+Result: 499999999500000000
+Took 0.000000000000000 secs
+Result: 499999999500000000
+Took 0.000000000000000 secs
+Result: 499999999500000000
+Took 0.000000000000000 secs
+Total time 0.000063896179199 secs
+Average time 0.000021298726400 secs
+./bigsum_opts 3
+Result: 499999999500000000
+Took 0.000000238418579 secs
+Result: 499999999500000000
+Took 0.000000000000000 secs
+Result: 499999999500000000
+Took 0.000000000000000 secs
+Total time 0.000174522399902 secs
+Average time 0.000058174133301 secs
+./bigsum_optg 3
+Result: 499999999500000000
+Took 0.580969810485840 secs
+Result: 499999999500000000
+Took 0.574371814727783 secs
+Result: 499999999500000000
+Took 0.574378967285156 secs
+Total time 1.729788541793823 secs
+Average time 0.576596180597941 secs
+</code></pre>
+
+<p>We see that on average <code>-O3</code> is fastest. Note also that <code>timespec</code> doesn’t time the individual loop times correctly on optimization levels <code>-O2</code>, <code>-O3</code>, and <code>-Os</code>. Ordering the optimization levels by average execution time (of the program) we get</p>
+
+<ol>
+  <li><code>-O3</code> with 0.000021298726400 seconds</li>
+  <li><code>-O2</code> with 0.000035603841146 seconds</li>
+  <li><code>-Os</code> with 0.000058174133301 seconds</li>
+  <li><code>-O1</code> with 0.291639328002930 seconds</li>
+  <li><code>-Og</code> with 0.576596180597941 seconds</li>
+  <li><code>-O0</code> with 1.706616163253784 seconds</li>
+</ol>
+
+<p>Let’s compare this result with the assembler code. We first list the sizes (in bytes).</p>
+
+<div class="language-bash highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"><a href="#n1" name="n1">1</a></span>[tobias@gantenbein time]$ ls -lS *.s
+<span class="line-numbers"><a href="#n2" name="n2">2</a></span>-rw-rw-r--. 1 tobias tobias 2646 20 sep 18.27 bigsum_opt2.s
+<span class="line-numbers"><a href="#n3" name="n3">3</a></span>-rw-rw-r--. 1 tobias tobias 2646 20 sep 18.27 bigsum_opt3.s
+<span class="line-numbers"><a href="#n4" name="n4">4</a></span>-rw-rw-r--. 1 tobias tobias 2630 20 sep 18.27 bigsum_opt0.s
+<span class="line-numbers"><a href="#n5" name="n5">5</a></span>-rw-rw-r--. 1 tobias tobias 2537 20 sep 18.27 bigsum_optg.s
+<span class="line-numbers"><a href="#n6" name="n6">6</a></span>-rw-rw-r--. 1 tobias tobias 2491 20 sep 18.27 bigsum_opt1.s
+<span class="line-numbers"><a href="#n7" name="n7">7</a></span>-rw-rw-r--. 1 tobias tobias 2362 20 sep 18.27 bigsum_opts.s
+</pre></div>
+</div>
+</div>
+
+<p>This corresponds well with what is written in the <code>gcc</code> <a href="https://gcc.gnu.org/onlinedocs/gcc-8.2.0/gcc/Optimize-Options.html#Optimize-Options">documentation</a>. For example <code>-Os</code> optimizes for code size, and indeed <code>bigsum_opts.s</code> is smallest.</p>
+
+<p>Let’s delve a bit deeper into the actual timing, by comparing the actual assembler code of the slowest – <code>-O0</code>, with the fastest – <code>-O3</code>.</p>
+
+<h2 id="inlining">Inlining</h2>
+
+<h2 id="locality">Locality</h2>
+
+<h2 id="indirect-addressing">Indirect addressing</h2>
+
+<h2 id="writing-to-hdd-and-to-ssd">Writing to HDD and to SSD</h2>
+
+<h2 id="valgrind">Valgrind</h2>
+
+<h2 id="profiling">Profiling</h2>
