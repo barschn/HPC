@@ -141,7 +141,7 @@ Total time 1.729788541793823 secs
 Average time 0.576596180597941 secs
 </code></pre>
 
-<p>We see that on average <code>-O3</code> is fastest. Note also that <code>timespec</code> doesn’t time the individual loop times correctly on optimization levels <code>-O2</code>, <code>-O3</code>, and <code>-Os</code>. Ordering the optimization levels by average execution time (of the program) we get</p>
+<p>We see that on average <code>-O3</code> is fastest. Note also that for <code>-O2</code>, <code>-O3</code>, and <code>-Os</code>, we often get individual loop times equal to zero – let’s get back to this later. Ordering the optimization levels by average execution time (of the program) we get</p>
 
 <ol>
   <li><code>-O3</code> with 0.000021298726400 seconds</li>
@@ -168,7 +168,182 @@ Average time 0.576596180597941 secs
 
 <p>This corresponds well with what is written in the <code>gcc</code> <a href="https://gcc.gnu.org/onlinedocs/gcc-8.2.0/gcc/Optimize-Options.html#Optimize-Options">documentation</a>. For example <code>-Os</code> optimizes for code size, and indeed <code>bigsum_opts.s</code> is smallest.</p>
 
-<p>Let’s delve a bit deeper into the actual timing, by comparing the actual assembler code of the slowest – <code>-O0</code>, with the fastest – <code>-O3</code>.</p>
+<p>Let’s delve a bit deeper into the actual timing, by compiling with the debug flag <code>-g</code> and then using <code>gdb</code>. Run</p>
+
+<div class="language-bash highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"><a href="#n1" name="n1">1</a></span>[tobias@gantenbein time]$ gcc -O3 -g bigsum.c -o bigsum_opt3_debug
+</pre></div>
+</div>
+</div>
+
+<p>and then</p>
+
+<div class="language-bash highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"><a href="#n1" name="n1">1</a></span>[tobias@gantenbein time]$ gdb -tui bigsum_opt3_debug
+</pre></div>
+</div>
+</div>
+
+<p>In <code>gdb</code>, we can then run</p>
+
+<div class="language-bash highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"><a href="#n1" name="n1">1</a></span>(gdb) layout split
+<span class="line-numbers"><a href="#n2" name="n2">2</a></span>(gdb) break main
+<span class="line-numbers"><a href="#n3" name="n3">3</a></span>Breakpoint 1 at 0x400500: file bigsum.c, line 10.
+<span class="line-numbers"><a href="#n4" name="n4">4</a></span>(gdb)
+</pre></div>
+</div>
+</div>
+
+<p>We now get an <strong>extraordinarily</strong> nice view of what is being executed – both in the assembler code and in the actual C code. Running <code>run 3</code> and stepping instruction-wise a few times we see the precise reason why <code>-O3</code> is so fast!</p>
+
+<pre><code>   ┌──bigsum.c─────────────────────────────────────────────────────────────────────────────────────────┐
+B+ │10              int reps=strtol(argv[1],NULL,10);                                                  │
+   │11              long double elapsed;                                                               │
+   │12              timespec_get(&amp;absstart, TIME_UTC);                                                 │
+  &gt;│13              for(size_t n=0; n&lt;reps; ++n){                                                      │
+   │14                      timespec_get(&amp;start, TIME_UTC);                                            │
+   │15                      for(size_t i=0; i&lt;SIZE; ++i)                                               │
+   │16                              S+=i;                                                              │
+   │17                      timespec_get(&amp;stop, TIME_UTC);                                             │
+   │18                      printf("Result: %ld\n",S);                                                 │
+   │19                      elapsed=(stop.tv_sec+1.0e-9*stop.tv_nsec)-(start.tv_sec+1.0e-9*start.tv_nse│
+   │20                      printf("Took %.15Lf secs\n",elapsed);                                      │
+   │21                      S=0;                                                                       │
+   │22              }                                                                                  │
+   │23              timespec_get(&amp;absstop, TIME_UTC);                                                  │
+   │24              elapsed=(absstop.tv_sec+1.0e-9*absstop.tv_nsec)-(absstart.tv_sec+1.0e-9*absstart.tv│
+   │25              printf("Total time %.15Lf secs\n",elapsed);                                        │
+   │26              printf("Average time %.15Lf secs\n",elapsed/reps);                                 │
+   │27              exit(0); //Need to return stuff, if you don't return 0 make will assume error      │
+   │28              //Returning 1 will make (or bash) not run stuff afterwards                         │
+   ┌───────────────────────────────────────────────────────────────────────────────────────────────────┐
+   │0x40051d &lt;main+29&gt;      lea    0x40(%rsp),%rdi                                                     │
+   │0x400522 &lt;main+34&gt;      mov    %rax,%rbp                                                           │
+   │0x400525 &lt;main+37&gt;      mov    %eax,0x1c(%rsp)                                                     │
+   │0x400529 &lt;main+41&gt;      callq  0x4004c0 &lt;timespec_get@plt&gt;                                         │
+   │0x40052e &lt;main+46&gt;      movslq %ebp,%rbp                                                           │
+   │0x400531 &lt;main+49&gt;      test   %rbp,%rbp                                                           │
+   │0x400534 &lt;main+52&gt;      je     0x400693 &lt;main+403&gt;                                                 │
+   │0x40053a &lt;main+58&gt;      movsd  0x336(%rip),%xmm6        # 0x400878                                 │
+   │0x400542 &lt;main+66&gt;      xor    %ebx,%ebx                                                           │
+  &gt;│0x400544 &lt;main+68&gt;      movabs $0x6f05b59b5e49b00,%r12                                             │
+   │0x40054e &lt;main+78&gt;      movsd  %xmm6,0x10(%rsp)                                                    │
+   │0x400554 &lt;main+84&gt;      lea    0x20(%rsp),%rdi                                                     │
+   │0x400559 &lt;main+89&gt;      mov    $0x1,%esi                                                           │
+   │0x40055e &lt;main+94&gt;      add    $0x1,%rbx                                                           │
+   │0x400562 &lt;main+98&gt;      callq  0x4004c0 &lt;timespec_get@plt&gt;                                         │
+   │0x400567 &lt;main+103&gt;     lea    0x30(%rsp),%rdi                                                     │
+   │0x40056c &lt;main+108&gt;     mov    $0x1,%esi                                                           │
+   │0x400571 &lt;main+113&gt;     callq  0x4004c0 &lt;timespec_get@plt&gt;                                         │
+   │0x400576 &lt;main+118&gt;     mov    %r12,%rsi                                                           │
+   └───────────────────────────────────────────────────────────────────────────────────────────────────┘
+native process 11775 In: main                                                        L13   PC: 0x400544 
+
+
+(gdb) b	main
+Breakpoint 1 at 0x400500: file bigsum.c, line 10.
+(gdb) run 3
+Starting program: /home/tobias/GIT/HPC/assignment1/time/bigsum_opt3_debug 3
+Missing separate debuginfos, use: dnf debuginfo-install glibc-2.27-30.fc28.x86_64
+
+Breakpoint 1, main (argc=2, argv=0x7fffffffdf68) at bigsum.c:10
+(gdb) n
+(gdb) ni
+(gdb) ni
+(gdb) ni
+(gdb) ni
+(gdb) ni
+(gdb) ni
+(gdb) 
+</code></pre>
+
+<p>Of special importance is the instruction at <code>0x400544 &lt;main+68&gt;</code>.</p>
+
+<div class="language-asm highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"><a href="#n1" name="n1">1</a></span>movabs $0x6f05b59b5e49b00,%r12
+</pre></div>
+</div>
+</div>
+
+<p>Converting <code>0x6f05b59b5e49b00</code> to <code>long</code>, we get 499999999500000000. But this is just <script type="math/tex">\frac{(10^9-1)\cdot 10^9}{2}</script>, i. e. the sum of the first billion integers. The compiler precomputes the sum!</p>
+
+<p>This does indeed not happen when compiling with <code>-O0</code>, see below.</p>
+
+<pre><code>   ┌──bigsum.c──────────────────────────────────────────────────────┐
+   │7       void main(int argc, char *argv[]){                      │
+   │8               struct timespec start,stop,absstart,absstop;    │
+   │9               long S=0;                                       │
+   │10              int reps=strtol(argv[1],NULL,10);               │
+   │11              long double elapsed;                            │
+   │12              timespec_get(&amp;absstart, TIME_UTC);              │
+   │13              for(size_t n=0; n&lt;reps; ++n){                   │
+   │14                      timespec_get(&amp;start, TIME_UTC);         │
+B+ │15                      for(size_t i=0; i&lt;SIZE; ++i)            │
+  &gt;│16                              S+=i;                           │
+   │17                      timespec_get(&amp;stop, TIME_UTC);          │
+   │18                      printf("Result: %ld\n",S);              │
+   │19                      elapsed=(stop.tv_sec+1.0e-9*stop.tv_nsec│
+   │20                      printf("Took %.15Lf secs\n",elapsed);   │
+   │21                      S=0;                                    │
+   │22              }                                               │
+   │23              timespec_get(&amp;absstop, TIME_UTC);               │
+   │24              elapsed=(absstop.tv_sec+1.0e-9*absstop.tv_nsec)-│
+   │25              printf("Total time %.15Lf secs\n",elapsed);     │
+   ┌────────────────────────────────────────────────────────────────┐
+   │0x400629 &lt;main+67&gt;      mov    %rax,%rdi                        │
+   │0x40062c &lt;main+70&gt;      callq  0x4004c0 &lt;timespec_get@plt&gt;      │
+   │0x400631 &lt;main+75&gt;      movq   $0x0,-0x10(%rbp)                 │
+   │0x400639 &lt;main+83&gt;      jmpq   0x40071d &lt;main+311&gt;              │
+   │0x40063e &lt;main+88&gt;      lea    -0x40(%rbp),%rax                 │
+   │0x400642 &lt;main+92&gt;      mov    $0x1,%esi                        │
+   │0x400647 &lt;main+97&gt;      mov    %rax,%rdi                        │
+   │0x40064a &lt;main+100&gt;     callq  0x4004c0 &lt;timespec_get@plt&gt;      │
+B+ │0x40064f &lt;main+105&gt;     movq   $0x0,-0x18(%rbp)                 │
+   │0x400657 &lt;main+113&gt;     jmp    0x40066d &lt;main+135&gt;              │
+  &gt;│0x400659 &lt;main+115&gt;     mov    -0x8(%rbp),%rdx                  │
+   │0x40065d &lt;main+119&gt;     mov    -0x18(%rbp),%rax                 │
+   │0x400661 &lt;main+123&gt;     add    %rdx,%rax                        │
+   │0x400664 &lt;main+126&gt;     mov    %rax,-0x8(%rbp)                  │
+   │0x400668 &lt;main+130&gt;     addq   $0x1,-0x18(%rbp)                 │
+   │0x40066d &lt;main+135&gt;     cmpq   $0x3b9ac9ff,-0x18(%rbp)          │
+   │0x400675 &lt;main+143&gt;     jbe    0x400659 &lt;main+115&gt;              │
+   │0x400677 &lt;main+145&gt;     lea    -0x50(%rbp),%rax                 │
+   │0x40067b &lt;main+149&gt;     mov    $0x1,%esi                        │
+   └────────────────────────────────────────────────────────────────┘
+native process 12272 In: main                     L16   PC: 0x400659 
+
+
+(gdb) b	15
+Breakpoint 1 at 0x40064f: file bigsum.c, line 15.
+(gdb) run 3
+Starting program: /home/tobias/GIT/HPC/assignment1/time/bigsum_opt0_d
+ebug 3
+Missing separate debuginfos, use: dnf debuginfo-install glibc-2.27-30
+.fc28.x86_64
+
+Breakpoint 1, main (argc=2, argv=0x7fffffffdf68) at bigsum.c:15
+(gdb) ni
+(gdb) ni
+(gdb) ni
+(gdb) ni
+(gdb)
+</code></pre>
+
+<p>Here we see that indeed the <code>for</code> loop is being executed. See the commented code below.</p>
+
+<pre><code>0x40064f &lt;main+105&gt;     movq   $0x0,-0x18(%rbp) //initialize i to 0
+0x400657 &lt;main+113&gt;     jmp    0x40066d &lt;main+135&gt; //jump to the comparison
+0x400659 &lt;main+115&gt;     mov    -0x8(%rbp),%rdx //loop: put S in %rdx
+0x40065d &lt;main+119&gt;     mov    -0x18(%rbp),%rax //put i in %rax
+0x400661 &lt;main+123&gt;     add    %rdx,%rax //add %rdx and %rax and store result in %rax
+0x400664 &lt;main+126&gt;     mov    %rax,-0x8(%rbp) //move %rax to S
+0x400668 &lt;main+130&gt;     addq   $0x1,-0x18(%rbp) //add 1 to i
+0x40066d &lt;main+135&gt;     cmpq   $0x3b9ac9ff,-0x18(%rbp) //comparison: comparing i with 0x3b9ac9ff=999999999
+0x400675 &lt;main+143&gt;     jbe    0x400659 &lt;main+115&gt; //jump to the loop if below or equal
+</code></pre>
+
+<p>I don’t have time to look at the other assembler code in detail, even if it’d be delightful.</p>
 
 <h2 id="inlining">Inlining</h2>
 
