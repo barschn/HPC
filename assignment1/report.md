@@ -336,6 +336,46 @@ I don't have time to look at the other assembler code in detail, even if it'd be
 
 ## Inlining
 
+In this part we investigate the effects of automatic inlining. We do this by implementing a function `mul_cpx` that computes the sum of two complex numbers, in three different ways.
+
+1. By putting `mul_cpx` in the same file as `main`, but not inlined. Call this variant 1.
+2. By putting `mul_cpx` in a different `.c` file from `main`, and then importing it. Call this variant 2.
+3. By inlining `mul_cpx` manually wherever it is called. Call this variant 3.
+
+To measure we execute the following code (or a minor variation thereof).
+
+~~~C
+struct timespec start,stop;
+double * ares = (double *) malloc(sizeof(double)*SIZE);
+double * aims = (double *) malloc(sizeof(double)*SIZE);
+double * bres = (double *) malloc(sizeof(double)*SIZE);
+double * bims = (double *) malloc(sizeof(double)*SIZE);
+double * cres = (double *) malloc(sizeof(double)*SIZE);
+double * cims = (double *) malloc(sizeof(double)*SIZE);
+
+long double elapsed;
+
+timespec_get(&start, TIME_UTC);
+//Generating entries for b and c
+for (size_t i=0; i<SIZE; ++i){
+	*(bres + i) = 1;
+	*(bims + i) = 1;
+	*(cres + i) = 1;
+	*(cims + i) = 1;
+}
+timespec_get(&stop, TIME_UTC);
+elapsed=(stop.tv_sec+1.0e-9*stop.tv_nsec)-(start.tv_sec+1.0e-9*start.tv_nsec);
+printf("Took %Lf10 secs to generate.\n",elapsed);
+timespec_get(&start, TIME_UTC);
+for (size_t i=0; i<SIZE; ++i)
+	mul_cpx_TYPE(ares+i, aims+i, bres+i, bims+i, cres+i, cims+i); //TYPE is pseudo
+timespec_get(&stop, TIME_UTC);
+elapsed=(stop.tv_sec+1.0e-9*stop.tv_nsec)-(start.tv_sec+1.0e-9*start.tv_nsec);
+printf("Took %Lf10 secs to compute.\n",elapsed);
+~~~
+
+where `TYPE` can be either `mainfile` or `separatefile`, depending on whether we measure variant 1, 2, or 3.
+
 ## Locality
 
 ## Indirect addressing
