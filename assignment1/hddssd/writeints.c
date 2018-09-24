@@ -2,9 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-//prev was 1048576
-
-#define SIZE 67108864
+#define SIZE 1048576
 
 
 void main(){
