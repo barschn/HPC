@@ -708,8 +708,831 @@ Breakpoint 1, main (argc=2, argv=0x7fffffffdf68) at bigsum.c:15
 
 <h2 id="indirect-addressing">Indirect addressing</h2>
 
+<p>In this exercise we shall do some ostensibly stupid things. We’ll write a program that increments the <code>j</code>th entry of a vector <code>y</code> by a multiple <code>a</code> of a the <code>j</code>th entry of a vector <code>x</code>, where the index <code>j</code> comes from an indexing vector <code>p</code>.</p>
+
+<p>We shall not do this in full generality, but rather base our program on the following code snippet in which we assume <code>p</code>, <code>x</code> and <code>y</code> to have the same lengths.</p>
+
+<div class="language-C highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"><a href="#n1" name="n1">1</a></span>n = <span style="color:#00D">1000000</span>; m = <span style="color:#00D">1000</span>;
+<span class="line-numbers"><a href="#n2" name="n2">2</a></span><span style="color:#080;font-weight:bold">for</span> (kx=<span style="color:#00D">0</span>; kx &lt; n; ++kx) {
+<span class="line-numbers"><a href="#n3" name="n3">3</a></span>        jx = p[kx];
+<span class="line-numbers"><a href="#n4" name="n4">4</a></span>        y[jx] += a * x[jx];
+<span class="line-numbers"><a href="#n5" name="n5">5</a></span>}
+</pre></div>
+</div>
+</div>
+
+<p>We generate <code>p</code> in two different ways, called variant 1 and 2. This is variant 1,</p>
+
+<div class="language-C highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"><a href="#n1" name="n1">1</a></span>ix = <span style="color:#00D">0</span>;
+<span class="line-numbers"><a href="#n2" name="n2">2</a></span><span style="color:#080;font-weight:bold">for</span> (jx=<span style="color:#00D">0</span>; jx &lt; m; ++jx)
+<span class="line-numbers"><a href="#n3" name="n3">3</a></span>  <span style="color:#080;font-weight:bold">for</span> (kx=<span style="color:#00D">0</span>; kx &lt; m; ++kx)
+<span class="line-numbers"><a href="#n4" name="n4">4</a></span>    p[jx + m*kx] = ix++;
+</pre></div>
+</div>
+</div>
+
+<p>and this is variant 2</p>
+
+<div class="language-C highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"><a href="#n1" name="n1">1</a></span><span style="color:#080;font-weight:bold">for</span> (ix=<span style="color:#00D">0</span>; ix &lt; n; ++ix)
+<span class="line-numbers"><a href="#n2" name="n2">2</a></span>  p[ix] = ix;
+</pre></div>
+</div>
+</div>
+
+<p>We also provide an alternative implementation in which we access <code>x</code> and <code>y</code> directly.</p>
+
+<p>Here’s variant 1</p>
+
+<div class="language-C highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"> <a href="#n1" name="n1">1</a></span><span style="color:#579">#include</span> <span style="color:#B44;font-weight:bold">&lt;stdio.h&gt;</span>
+<span class="line-numbers"> <a href="#n2" name="n2">2</a></span><span style="color:#579">#include</span> <span style="color:#B44;font-weight:bold">&lt;stdlib.h&gt;</span>
+<span class="line-numbers"> <a href="#n3" name="n3">3</a></span><span style="color:#579">#include</span> <span style="color:#B44;font-weight:bold">&lt;time.h&gt;</span>
+<span class="line-numbers"> <a href="#n4" name="n4">4</a></span>
+<span class="line-numbers"> <a href="#n5" name="n5">5</a></span><span style="color:#088;font-weight:bold">void</span> main(){
+<span class="line-numbers"> <a href="#n6" name="n6">6</a></span>        <span style="color:#0a8;font-weight:bold">int</span> n=<span style="color:#00D">1000000</span>;
+<span class="line-numbers"> <a href="#n7" name="n7">7</a></span>        <span style="color:#0a8;font-weight:bold">int</span> m=<span style="color:#00D">1000</span>;
+<span class="line-numbers"> <a href="#n8" name="n8">8</a></span>
+<span class="line-numbers"> <a href="#n9" name="n9">9</a></span>        <span style="color:#777">//Here a is a scalar and x, y are vectors.</span>
+<span class="line-numbers"><strong><a href="#n10" name="n10">10</a></strong></span>        <span style="color:#777">//Pick whatever you wish!</span>
+<span class="line-numbers"><a href="#n11" name="n11">11</a></span>        <span style="color:#0a8;font-weight:bold">int</span> a;
+<span class="line-numbers"><a href="#n12" name="n12">12</a></span>        <span style="color:#0a8;font-weight:bold">int</span> *x=(<span style="color:#0a8;font-weight:bold">int</span>*)malloc(<span style="color:#080;font-weight:bold">sizeof</span>(<span style="color:#0a8;font-weight:bold">int</span>)*n);
+<span class="line-numbers"><a href="#n13" name="n13">13</a></span>        <span style="color:#0a8;font-weight:bold">int</span> *y=(<span style="color:#0a8;font-weight:bold">int</span>*)malloc(<span style="color:#080;font-weight:bold">sizeof</span>(<span style="color:#0a8;font-weight:bold">int</span>)*n);
+<span class="line-numbers"><a href="#n14" name="n14">14</a></span>
+<span class="line-numbers"><a href="#n15" name="n15">15</a></span>        <span style="color:#080;font-weight:bold">struct</span> timespec start,stop;
+<span class="line-numbers"><a href="#n16" name="n16">16</a></span>        <span style="color:#0a8;font-weight:bold">long</span> <span style="color:#0a8;font-weight:bold">double</span> elapsed;
+<span class="line-numbers"><a href="#n17" name="n17">17</a></span>        <span style="color:#777">//Picking ones, because why not?</span>
+<span class="line-numbers"><a href="#n18" name="n18">18</a></span>        a=<span style="color:#00D">1</span>;
+<span class="line-numbers"><a href="#n19" name="n19">19</a></span>        <span style="color:#080;font-weight:bold">for</span>(size_t i = <span style="color:#00D">0</span>; i &lt; n; ++i){
+<span class="line-numbers"><strong><a href="#n20" name="n20">20</a></strong></span>                x[i]=<span style="color:#00D">1</span>;
+<span class="line-numbers"><a href="#n21" name="n21">21</a></span>                y[i]=<span style="color:#00D">1</span>;
+<span class="line-numbers"><a href="#n22" name="n22">22</a></span>        }
+<span class="line-numbers"><a href="#n23" name="n23">23</a></span>
+<span class="line-numbers"><a href="#n24" name="n24">24</a></span>        <span style="color:#777">//Allocating and generating p</span>
+<span class="line-numbers"><a href="#n25" name="n25">25</a></span>        <span style="color:#0a8;font-weight:bold">int</span> *p=(<span style="color:#0a8;font-weight:bold">int</span>*)malloc(<span style="color:#080;font-weight:bold">sizeof</span>(<span style="color:#0a8;font-weight:bold">int</span>)*n);
+<span class="line-numbers"><a href="#n26" name="n26">26</a></span>        size_t ix = <span style="color:#00D">0</span>;
+<span class="line-numbers"><a href="#n27" name="n27">27</a></span>        <span style="color:#080;font-weight:bold">for</span>(size_t jx = <span style="color:#00D">0</span>; jx &lt; m; ++jx)
+<span class="line-numbers"><a href="#n28" name="n28">28</a></span>                <span style="color:#080;font-weight:bold">for</span>(size_t kx = <span style="color:#00D">0</span>; kx &lt; m; ++kx)
+<span class="line-numbers"><a href="#n29" name="n29">29</a></span>                        p[jx + m*kx] = ix++;
+<span class="line-numbers"><strong><a href="#n30" name="n30">30</a></strong></span>
+<span class="line-numbers"><a href="#n31" name="n31">31</a></span>        timespec_get(&amp;start,TIME_UTC);
+<span class="line-numbers"><a href="#n32" name="n32">32</a></span>        <span style="color:#0a8;font-weight:bold">int</span> j;
+<span class="line-numbers"><a href="#n33" name="n33">33</a></span>        <span style="color:#080;font-weight:bold">for</span>(size_t kx = <span style="color:#00D">0</span>; kx &lt; n; ++kx){
+<span class="line-numbers"><a href="#n34" name="n34">34</a></span>                j=p[kx];
+<span class="line-numbers"><a href="#n35" name="n35">35</a></span>                y[j] += a * x[j];
+<span class="line-numbers"><a href="#n36" name="n36">36</a></span>        }
+<span class="line-numbers"><a href="#n37" name="n37">37</a></span>        timespec_get(&amp;stop,TIME_UTC);
+<span class="line-numbers"><a href="#n38" name="n38">38</a></span>        elapsed=(stop.tv_sec+<span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*stop.tv_nsec)-(start.tv_sec+<span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*start.tv_nsec);
+<span class="line-numbers"><a href="#n39" name="n39">39</a></span>        printf(<span style="background-color:hsla(0,100%,50%,0.05)"><span style="color:#710">&quot;</span><span style="color:#D20">%Lf10 was the time it took.</span><span style="color:#b0b">\n</span><span style="color:#710">&quot;</span></span>,elapsed);
+<span class="line-numbers"><strong><a href="#n40" name="n40">40</a></strong></span>        exit(<span style="color:#00D">0</span>);
+<span class="line-numbers"><a href="#n41" name="n41">41</a></span>}
+</pre></div>
+</div>
+</div>
+
+<p>and here’s variant 2</p>
+
+<div class="language-C highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"> <a href="#n1" name="n1">1</a></span><span style="color:#579">#include</span> <span style="color:#B44;font-weight:bold">&lt;stdio.h&gt;</span>
+<span class="line-numbers"> <a href="#n2" name="n2">2</a></span><span style="color:#579">#include</span> <span style="color:#B44;font-weight:bold">&lt;stdlib.h&gt;</span>
+<span class="line-numbers"> <a href="#n3" name="n3">3</a></span><span style="color:#579">#include</span> <span style="color:#B44;font-weight:bold">&lt;time.h&gt;</span>
+<span class="line-numbers"> <a href="#n4" name="n4">4</a></span>
+<span class="line-numbers"> <a href="#n5" name="n5">5</a></span><span style="color:#088;font-weight:bold">void</span> main(){
+<span class="line-numbers"> <a href="#n6" name="n6">6</a></span>        <span style="color:#0a8;font-weight:bold">int</span> n=<span style="color:#00D">1000000</span>;
+<span class="line-numbers"> <a href="#n7" name="n7">7</a></span>        <span style="color:#0a8;font-weight:bold">int</span> m=<span style="color:#00D">1000</span>;
+<span class="line-numbers"> <a href="#n8" name="n8">8</a></span>
+<span class="line-numbers"> <a href="#n9" name="n9">9</a></span>        <span style="color:#777">//Here a is a scalar and x, y are vectors.</span>
+<span class="line-numbers"><strong><a href="#n10" name="n10">10</a></strong></span>        <span style="color:#777">//Pick whatever you wish!</span>
+<span class="line-numbers"><a href="#n11" name="n11">11</a></span>        <span style="color:#0a8;font-weight:bold">int</span> a;
+<span class="line-numbers"><a href="#n12" name="n12">12</a></span>        <span style="color:#0a8;font-weight:bold">int</span> *x=(<span style="color:#0a8;font-weight:bold">int</span>*)malloc(<span style="color:#080;font-weight:bold">sizeof</span>(<span style="color:#0a8;font-weight:bold">int</span>)*n);
+<span class="line-numbers"><a href="#n13" name="n13">13</a></span>        <span style="color:#0a8;font-weight:bold">int</span> *y=(<span style="color:#0a8;font-weight:bold">int</span>*)malloc(<span style="color:#080;font-weight:bold">sizeof</span>(<span style="color:#0a8;font-weight:bold">int</span>)*n);
+<span class="line-numbers"><a href="#n14" name="n14">14</a></span>
+<span class="line-numbers"><a href="#n15" name="n15">15</a></span>        <span style="color:#080;font-weight:bold">struct</span> timespec start,stop;
+<span class="line-numbers"><a href="#n16" name="n16">16</a></span>        <span style="color:#0a8;font-weight:bold">long</span> <span style="color:#0a8;font-weight:bold">double</span> elapsed;
+<span class="line-numbers"><a href="#n17" name="n17">17</a></span>        <span style="color:#777">//Picking ones, because why not?</span>
+<span class="line-numbers"><a href="#n18" name="n18">18</a></span>        a=<span style="color:#00D">1</span>;
+<span class="line-numbers"><a href="#n19" name="n19">19</a></span>        <span style="color:#080;font-weight:bold">for</span>(size_t i = <span style="color:#00D">0</span>; i &lt; n; ++i){
+<span class="line-numbers"><strong><a href="#n20" name="n20">20</a></strong></span>                x[i]=<span style="color:#00D">1</span>;
+<span class="line-numbers"><a href="#n21" name="n21">21</a></span>                y[i]=<span style="color:#00D">1</span>;
+<span class="line-numbers"><a href="#n22" name="n22">22</a></span>        }
+<span class="line-numbers"><a href="#n23" name="n23">23</a></span>
+<span class="line-numbers"><a href="#n24" name="n24">24</a></span>        <span style="color:#777">//Variant 2</span>
+<span class="line-numbers"><a href="#n25" name="n25">25</a></span>        <span style="color:#777">//Allocating and generating p</span>
+<span class="line-numbers"><a href="#n26" name="n26">26</a></span>        <span style="color:#0a8;font-weight:bold">int</span> *p=(<span style="color:#0a8;font-weight:bold">int</span>*)malloc(<span style="color:#080;font-weight:bold">sizeof</span>(<span style="color:#0a8;font-weight:bold">int</span>)*n);
+<span class="line-numbers"><a href="#n27" name="n27">27</a></span>        <span style="color:#080;font-weight:bold">for</span>(size_t ix=<span style="color:#00D">0</span>; ix &lt; n; ++ix)
+<span class="line-numbers"><a href="#n28" name="n28">28</a></span>                p[ix]=ix;
+<span class="line-numbers"><a href="#n29" name="n29">29</a></span>
+<span class="line-numbers"><strong><a href="#n30" name="n30">30</a></strong></span>        timespec_get(&amp;start,TIME_UTC);
+<span class="line-numbers"><a href="#n31" name="n31">31</a></span>        <span style="color:#0a8;font-weight:bold">int</span> j;
+<span class="line-numbers"><a href="#n32" name="n32">32</a></span>        <span style="color:#080;font-weight:bold">for</span>(size_t kx = <span style="color:#00D">0</span>; kx &lt; n; ++kx){
+<span class="line-numbers"><a href="#n33" name="n33">33</a></span>                j=p[kx];
+<span class="line-numbers"><a href="#n34" name="n34">34</a></span>                y[j] += a * x[j];
+<span class="line-numbers"><a href="#n35" name="n35">35</a></span>        }
+<span class="line-numbers"><a href="#n36" name="n36">36</a></span>        timespec_get(&amp;stop,TIME_UTC);
+<span class="line-numbers"><a href="#n37" name="n37">37</a></span>        elapsed=(stop.tv_sec+<span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*stop.tv_nsec)-(start.tv_sec+<span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*start.tv_nsec);
+<span class="line-numbers"><a href="#n38" name="n38">38</a></span>        printf(<span style="background-color:hsla(0,100%,50%,0.05)"><span style="color:#710">&quot;</span><span style="color:#D20">%Lf10 was the time it took.</span><span style="color:#b0b">\n</span><span style="color:#710">&quot;</span></span>,elapsed);
+<span class="line-numbers"><a href="#n39" name="n39">39</a></span>        exit(<span style="color:#00D">0</span>);
+<span class="line-numbers"><strong><a href="#n40" name="n40">40</a></strong></span>}
+</pre></div>
+</div>
+</div>
+
+<p>and here’s the alternative implementation</p>
+
+<div class="language-C highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"> <a href="#n1" name="n1">1</a></span><span style="color:#579">#include</span> <span style="color:#B44;font-weight:bold">&lt;stdio.h&gt;</span>
+<span class="line-numbers"> <a href="#n2" name="n2">2</a></span><span style="color:#579">#include</span> <span style="color:#B44;font-weight:bold">&lt;stdlib.h&gt;</span>
+<span class="line-numbers"> <a href="#n3" name="n3">3</a></span><span style="color:#579">#include</span> <span style="color:#B44;font-weight:bold">&lt;time.h&gt;</span>
+<span class="line-numbers"> <a href="#n4" name="n4">4</a></span>
+<span class="line-numbers"> <a href="#n5" name="n5">5</a></span><span style="color:#088;font-weight:bold">void</span> main(){
+<span class="line-numbers"> <a href="#n6" name="n6">6</a></span>        <span style="color:#0a8;font-weight:bold">int</span> n=<span style="color:#00D">1000000</span>;
+<span class="line-numbers"> <a href="#n7" name="n7">7</a></span>        <span style="color:#0a8;font-weight:bold">int</span> m=<span style="color:#00D">1000</span>;
+<span class="line-numbers"> <a href="#n8" name="n8">8</a></span>
+<span class="line-numbers"> <a href="#n9" name="n9">9</a></span>        <span style="color:#777">//Here a is a scalar and x, y are vectors.</span>
+<span class="line-numbers"><strong><a href="#n10" name="n10">10</a></strong></span>        <span style="color:#777">//Pick whatever you wish!</span>
+<span class="line-numbers"><a href="#n11" name="n11">11</a></span>        <span style="color:#0a8;font-weight:bold">int</span> a;
+<span class="line-numbers"><a href="#n12" name="n12">12</a></span>        <span style="color:#0a8;font-weight:bold">int</span> *x=(<span style="color:#0a8;font-weight:bold">int</span>*)malloc(<span style="color:#080;font-weight:bold">sizeof</span>(<span style="color:#0a8;font-weight:bold">int</span>)*n);
+<span class="line-numbers"><a href="#n13" name="n13">13</a></span>        <span style="color:#0a8;font-weight:bold">int</span> *y=(<span style="color:#0a8;font-weight:bold">int</span>*)malloc(<span style="color:#080;font-weight:bold">sizeof</span>(<span style="color:#0a8;font-weight:bold">int</span>)*n);
+<span class="line-numbers"><a href="#n14" name="n14">14</a></span>
+<span class="line-numbers"><a href="#n15" name="n15">15</a></span>        <span style="color:#080;font-weight:bold">struct</span> timespec start,stop;
+<span class="line-numbers"><a href="#n16" name="n16">16</a></span>        <span style="color:#0a8;font-weight:bold">long</span> <span style="color:#0a8;font-weight:bold">double</span> elapsed;
+<span class="line-numbers"><a href="#n17" name="n17">17</a></span>        <span style="color:#777">//Picking ones, because why not?</span>
+<span class="line-numbers"><a href="#n18" name="n18">18</a></span>        a=<span style="color:#00D">1</span>;
+<span class="line-numbers"><a href="#n19" name="n19">19</a></span>        <span style="color:#080;font-weight:bold">for</span>(size_t i = <span style="color:#00D">0</span>; i &lt; n; ++i){
+<span class="line-numbers"><strong><a href="#n20" name="n20">20</a></strong></span>                x[i]=<span style="color:#00D">1</span>;
+<span class="line-numbers"><a href="#n21" name="n21">21</a></span>                y[i]=<span style="color:#00D">1</span>;
+<span class="line-numbers"><a href="#n22" name="n22">22</a></span>        }
+<span class="line-numbers"><a href="#n23" name="n23">23</a></span>
+<span class="line-numbers"><a href="#n24" name="n24">24</a></span>        <span style="color:#777">//Variant 3</span>
+<span class="line-numbers"><a href="#n25" name="n25">25</a></span>        <span style="color:#777">//Why do</span>
+<span class="line-numbers"><a href="#n26" name="n26">26</a></span>        <span style="color:#777">//      int *p=(int*)malloc(sizeof(int)*n);</span>
+<span class="line-numbers"><a href="#n27" name="n27">27</a></span>        <span style="color:#777">//      for(size_t ix=0; ix &lt; n; ++ix)</span>
+<span class="line-numbers"><a href="#n28" name="n28">28</a></span>        <span style="color:#777">//              p[ix]=ix;</span>
+<span class="line-numbers"><a href="#n29" name="n29">29</a></span>        <span style="color:#777">//when you can just access directly?</span>
+<span class="line-numbers"><strong><a href="#n30" name="n30">30</a></strong></span>
+<span class="line-numbers"><a href="#n31" name="n31">31</a></span>        timespec_get(&amp;start,TIME_UTC);
+<span class="line-numbers"><a href="#n32" name="n32">32</a></span>        <span style="color:#080;font-weight:bold">for</span>(size_t kx = <span style="color:#00D">0</span>; kx &lt; n; ++kx){
+<span class="line-numbers"><a href="#n33" name="n33">33</a></span>                y[kx] += a * x[kx];
+<span class="line-numbers"><a href="#n34" name="n34">34</a></span>        }
+<span class="line-numbers"><a href="#n35" name="n35">35</a></span>        timespec_get(&amp;stop,TIME_UTC);
+<span class="line-numbers"><a href="#n36" name="n36">36</a></span>        elapsed=(stop.tv_sec+<span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*stop.tv_nsec)-(start.tv_sec+<span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*start.tv_nsec);
+<span class="line-numbers"><a href="#n37" name="n37">37</a></span>        printf(<span style="background-color:hsla(0,100%,50%,0.05)"><span style="color:#710">&quot;</span><span style="color:#D20">%Lf10 was the time it took.</span><span style="color:#b0b">\n</span><span style="color:#710">&quot;</span></span>,elapsed);
+<span class="line-numbers"><a href="#n38" name="n38">38</a></span>        exit(<span style="color:#00D">0</span>);
+<span class="line-numbers"><a href="#n39" name="n39">39</a></span>}
+</pre></div>
+</div>
+</div>
+
+<p>Below we’ve the makefile</p>
+
+<div class="language-make highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"> <a href="#n1" name="n1">1</a></span>.PHONY: all check clean
+<span class="line-numbers"> <a href="#n2" name="n2">2</a></span>
+<span class="line-numbers"> <a href="#n3" name="n3">3</a></span>CFLAGS=-std=c11 -march=native
+<span class="line-numbers"> <a href="#n4" name="n4">4</a></span>CO0=$(CFLAGS) -O0
+<span class="line-numbers"> <a href="#n5" name="n5">5</a></span>CO2=$(CFLAGS) -O2
+<span class="line-numbers"> <a href="#n6" name="n6">6</a></span>
+<span class="line-numbers"> <a href="#n7" name="n7">7</a></span>all : indirect_v1 indirect_v2 direct
+<span class="line-numbers"> <a href="#n8" name="n8">8</a></span>
+<span class="line-numbers"> <a href="#n9" name="n9">9</a></span>indirect_v1 : indirect_v1.c
+<span class="line-numbers"><strong><a href="#n10" name="n10">10</a></strong></span>        gcc $(CO0) -o indirect_v10 indirect_v1.c
+<span class="line-numbers"><a href="#n11" name="n11">11</a></span>        gcc $(CO2) -o indirect_v12 indirect_v1.c
+<span class="line-numbers"><a href="#n12" name="n12">12</a></span>
+<span class="line-numbers"><a href="#n13" name="n13">13</a></span>indirect_v2 : indirect_v2.c
+<span class="line-numbers"><a href="#n14" name="n14">14</a></span>        gcc $(CO0) -o indirect_v20 indirect_v2.c
+<span class="line-numbers"><a href="#n15" name="n15">15</a></span>        gcc $(CO2) -o indirect_v22 indirect_v2.c
+<span class="line-numbers"><a href="#n16" name="n16">16</a></span>
+<span class="line-numbers"><a href="#n17" name="n17">17</a></span>direct : direct.c
+<span class="line-numbers"><a href="#n18" name="n18">18</a></span>        gcc $(CO0) -o direct0 direct.c
+<span class="line-numbers"><a href="#n19" name="n19">19</a></span>        gcc $(CO2) -o direct2 direct.c
+<span class="line-numbers"><strong><a href="#n20" name="n20">20</a></strong></span>
+<span class="line-numbers"><a href="#n21" name="n21">21</a></span>clean :
+<span class="line-numbers"><a href="#n22" name="n22">22</a></span>        rm -f indirect_v10 indirect_v12 indirect_v20 indirect_v22 direct
+<span class="line-numbers"><a href="#n23" name="n23">23</a></span>        rm -f *.o
+<span class="line-numbers"><a href="#n24" name="n24">24</a></span>
+<span class="line-numbers"><a href="#n25" name="n25">25</a></span>check :
+<span class="line-numbers"><a href="#n26" name="n26">26</a></span>        echo &quot;Indirect&quot;
+<span class="line-numbers"><a href="#n27" name="n27">27</a></span>        echo &quot;V1&quot;
+<span class="line-numbers"><a href="#n28" name="n28">28</a></span>        ./indirect_v10
+<span class="line-numbers"><a href="#n29" name="n29">29</a></span>        ./indirect_v12
+<span class="line-numbers"><strong><a href="#n30" name="n30">30</a></strong></span>        echo &quot;V2&quot;
+<span class="line-numbers"><a href="#n31" name="n31">31</a></span>        ./indirect_v20
+<span class="line-numbers"><a href="#n32" name="n32">32</a></span>        ./indirect_v22
+<span class="line-numbers"><a href="#n33" name="n33">33</a></span>        echo &quot;Direct&quot;
+<span class="line-numbers"><a href="#n34" name="n34">34</a></span>        ./direct0
+<span class="line-numbers"><a href="#n35" name="n35">35</a></span>        ./direct2
+</pre></div>
+</div>
+</div>
+
+<p>Of course we expect the fastest to be <code>direct*</code>, the second fastest to be <code>indirect_v2*</code>, and the slowest to be <code>indirect_v1*</code>, regardless of optimization levels. The benchmarking confirms this.</p>
+
+<div class="language-bash highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"> <a href="#n1" name="n1">1</a></span>[tobias@gantenbein indirect]$ make check
+<span class="line-numbers"> <a href="#n2" name="n2">2</a></span>echo &quot;Indirect&quot;
+<span class="line-numbers"> <a href="#n3" name="n3">3</a></span>Indirect
+<span class="line-numbers"> <a href="#n4" name="n4">4</a></span>echo &quot;V1&quot;
+<span class="line-numbers"> <a href="#n5" name="n5">5</a></span>V1
+<span class="line-numbers"> <a href="#n6" name="n6">6</a></span>./indirect_v10
+<span class="line-numbers"> <a href="#n7" name="n7">7</a></span>0.00934610 was the time it took.
+<span class="line-numbers"> <a href="#n8" name="n8">8</a></span>./indirect_v12
+<span class="line-numbers"> <a href="#n9" name="n9">9</a></span>0.00853410 was the time it took.
+<span class="line-numbers"><strong><a href="#n10" name="n10">10</a></strong></span>echo &quot;V2&quot;
+<span class="line-numbers"><a href="#n11" name="n11">11</a></span>V2
+<span class="line-numbers"><a href="#n12" name="n12">12</a></span>./indirect_v20
+<span class="line-numbers"><a href="#n13" name="n13">13</a></span>0.00321410 was the time it took.
+<span class="line-numbers"><a href="#n14" name="n14">14</a></span>./indirect_v22
+<span class="line-numbers"><a href="#n15" name="n15">15</a></span>0.00075210 was the time it took.
+<span class="line-numbers"><a href="#n16" name="n16">16</a></span>echo &quot;Direct&quot;
+<span class="line-numbers"><a href="#n17" name="n17">17</a></span>Direct
+<span class="line-numbers"><a href="#n18" name="n18">18</a></span>./direct0
+<span class="line-numbers"><a href="#n19" name="n19">19</a></span>0.00239710 was the time it took.
+<span class="line-numbers"><strong><a href="#n20" name="n20">20</a></strong></span>./direct2
+<span class="line-numbers"><a href="#n21" name="n21">21</a></span>0.00048510 was the time it took.
+</pre></div>
+</div>
+</div>
+
+<p>The reason why direct addressing is faster than variant 1 and 2 is because we don’t need to dereference. As for the difference between variant 1 and 2, look at the following output of <code>cachegrind</code></p>
+
+<div class="language-bash highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"> <a href="#n1" name="n1">1</a></span>[tobias@gantenbein indirect]$ valgrind --tool=cachegrind ./indirect_v10
+<span class="line-numbers"> <a href="#n2" name="n2">2</a></span>==92432== Cachegrind, a cache and branch-prediction profiler
+<span class="line-numbers"> <a href="#n3" name="n3">3</a></span>==92432== Copyright (C) 2002-2017, and GNU GPL'd, by Nicholas Nethercote et al.
+<span class="line-numbers"> <a href="#n4" name="n4">4</a></span>==92432== Using Valgrind-3.13.0 and LibVEX; rerun with -h for copyright info
+<span class="line-numbers"> <a href="#n5" name="n5">5</a></span>==92432== Command: ./indirect_v10
+<span class="line-numbers"> <a href="#n6" name="n6">6</a></span>==92432== 
+<span class="line-numbers"> <a href="#n7" name="n7">7</a></span>--92432-- warning: L3 cache found, using its data for the LL simulation.
+<span class="line-numbers"> <a href="#n8" name="n8">8</a></span>--92432-- warning: specified LL cache: line_size 64  assoc 11  total_size 40,370,176
+<span class="line-numbers"> <a href="#n9" name="n9">9</a></span>--92432-- warning: simulated LL cache: line_size 64  assoc 19  total_size 39,845,888
+<span class="line-numbers"><strong><a href="#n10" name="n10">10</a></strong></span>0.14152110 was the time it took.
+<span class="line-numbers"><a href="#n11" name="n11">11</a></span>==92432== 
+<span class="line-numbers"><a href="#n12" name="n12">12</a></span>==92432== I   refs:      65,204,847
+<span class="line-numbers"><a href="#n13" name="n13">13</a></span>==92432== I1  misses:         1,086
+<span class="line-numbers"><a href="#n14" name="n14">14</a></span>==92432== LLi misses:         1,065
+<span class="line-numbers"><a href="#n15" name="n15">15</a></span>==92432== I1  miss rate:       0.00%
+<span class="line-numbers"><a href="#n16" name="n16">16</a></span>==92432== LLi miss rate:       0.00%
+<span class="line-numbers"><a href="#n17" name="n17">17</a></span>==92432== 
+<span class="line-numbers"><a href="#n18" name="n18">18</a></span>==92432== D   refs:      36,066,829  (30,052,363 rd   + 6,014,466 wr)
+<span class="line-numbers"><a href="#n19" name="n19">19</a></span>==92432== D1  misses:     3,190,828  ( 2,065,134 rd   + 1,125,694 wr)
+<span class="line-numbers"><strong><a href="#n20" name="n20">20</a></strong></span>==92432== LLd misses:       190,134  (     2,051 rd   +   188,083 wr)
+<span class="line-numbers"><a href="#n21" name="n21">21</a></span>==92432== D1  miss rate:        8.8% (       6.9%     +      18.7%  )
+<span class="line-numbers"><a href="#n22" name="n22">22</a></span>==92432== LLd miss rate:        0.5% (       0.0%     +       3.1%  )
+<span class="line-numbers"><a href="#n23" name="n23">23</a></span>==92432== 
+<span class="line-numbers"><a href="#n24" name="n24">24</a></span>==92432== LL refs:        3,191,914  ( 2,066,220 rd   + 1,125,694 wr)
+<span class="line-numbers"><a href="#n25" name="n25">25</a></span>==92432== LL misses:        191,199  (     3,116 rd   +   188,083 wr)
+<span class="line-numbers"><a href="#n26" name="n26">26</a></span>==92432== LL miss rate:         0.2% (       0.0%     +       3.1%  )
+<span class="line-numbers"><a href="#n27" name="n27">27</a></span>[tobias@gantenbein indirect]$ valgrind --tool=cachegrind ./indirect_v20
+<span class="line-numbers"><a href="#n28" name="n28">28</a></span>==92433== Cachegrind, a cache and branch-prediction profiler
+<span class="line-numbers"><a href="#n29" name="n29">29</a></span>==92433== Copyright (C) 2002-2017, and GNU GPL'd, by Nicholas Nethercote et al.
+<span class="line-numbers"><strong><a href="#n30" name="n30">30</a></strong></span>==92433== Using Valgrind-3.13.0 and LibVEX; rerun with -h for copyright info
+<span class="line-numbers"><a href="#n31" name="n31">31</a></span>==92433== Command: ./indirect_v20
+<span class="line-numbers"><a href="#n32" name="n32">32</a></span>==92433== 
+<span class="line-numbers"><a href="#n33" name="n33">33</a></span>--92433-- warning: L3 cache found, using its data for the LL simulation.
+<span class="line-numbers"><a href="#n34" name="n34">34</a></span>--92433-- warning: specified LL cache: line_size 64  assoc 11  total_size 40,370,176
+<span class="line-numbers"><a href="#n35" name="n35">35</a></span>--92433-- warning: simulated LL cache: line_size 64  assoc 19  total_size 39,845,888
+<span class="line-numbers"><a href="#n36" name="n36">36</a></span>0.11815710 was the time it took.
+<span class="line-numbers"><a href="#n37" name="n37">37</a></span>==92433== 
+<span class="line-numbers"><a href="#n38" name="n38">38</a></span>==92433== I   refs:      58,193,977
+<span class="line-numbers"><a href="#n39" name="n39">39</a></span>==92433== I1  misses:         1,094
+<span class="line-numbers"><strong><a href="#n40" name="n40">40</a></strong></span>==92433== LLi misses:         1,073
+<span class="line-numbers"><a href="#n41" name="n41">41</a></span>==92433== I1  miss rate:       0.00%
+<span class="line-numbers"><a href="#n42" name="n42">42</a></span>==92433== LLi miss rate:       0.00%
+<span class="line-numbers"><a href="#n43" name="n43">43</a></span>==92433== 
+<span class="line-numbers"><a href="#n44" name="n44">44</a></span>==92433== D   refs:      33,060,873  (28,047,390 rd   + 5,013,483 wr)
+<span class="line-numbers"><a href="#n45" name="n45">45</a></span>==92433== D1  misses:       378,330  (   190,137 rd   +   188,193 wr)
+<span class="line-numbers"><a href="#n46" name="n46">46</a></span>==92433== LLd misses:       190,136  (     2,053 rd   +   188,083 wr)
+<span class="line-numbers"><a href="#n47" name="n47">47</a></span>==92433== D1  miss rate:        1.1% (       0.7%     +       3.8%  )
+<span class="line-numbers"><a href="#n48" name="n48">48</a></span>==92433== LLd miss rate:        0.6% (       0.0%     +       3.8%  )
+<span class="line-numbers"><a href="#n49" name="n49">49</a></span>==92433== 
+<span class="line-numbers"><strong><a href="#n50" name="n50">50</a></strong></span>==92433== LL refs:          379,424  (   191,231 rd   +   188,193 wr)
+<span class="line-numbers"><a href="#n51" name="n51">51</a></span>==92433== LL misses:        191,209  (     3,126 rd   +   188,083 wr)
+<span class="line-numbers"><a href="#n52" name="n52">52</a></span>==92433== LL miss rate:         0.2% (       0.0%     +       3.8%  )
+<span class="line-numbers"><a href="#n53" name="n53">53</a></span>[tobias@gantenbein indirect]$
+</pre></div>
+</div>
+</div>
+
+<p>As is visible on lines 21 and 47, the <code>D1 miss rate</code> is much higher in variant 1 than in variant 2. As we can read <a href="http://valgrind.org/docs/manual/cg-manual.html">here</a>, the (virtual) <code>D1</code> cache essentially corresponds to the L1 cache.</p>
+
+<p>Such an abundance of cache misses will clearly slow down the program. Indeed, we read on <a href="https://en.wikipedia.org/wiki/CPU_cache#Cache_miss">Wikipedia</a> the following</p>
+
+<blockquote>
+  <p>A cache miss is a failed attempt to read or write a piece of data in the cache, which results in a main memory access with much longer latency.</p>
+</blockquote>
+
 <h2 id="writing-to-hdd-and-to-ssd">Writing to HDD and to SSD</h2>
+
+<p>In this exercise we run two tests to bench the difference between HDDs and SSDs. In the first test we write and read the first <script type="math/tex">2^{20}</script> integers to a file on HDD and SSD and reason about the difference.</p>
+
+<p>In the second test, we copy <code>/usr/include</code> to <code>$HOME</code> and then copy this copy to another copy, also on <code>$HOME</code>, 10 times. We also copy <code>/usr/include</code> to the SSD, and then copy that copy to the SSD, and to home. While doing all of this, we time it using <code>time</code>.</p>
+
+<p>Here’s the code and bench for the first test.</p>
+
+<div class="language-C highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"> <a href="#n1" name="n1">1</a></span><span style="color:#579">#include</span> <span style="color:#B44;font-weight:bold">&lt;stdio.h&gt;</span>
+<span class="line-numbers"> <a href="#n2" name="n2">2</a></span><span style="color:#579">#include</span> <span style="color:#B44;font-weight:bold">&lt;stdlib.h&gt;</span>
+<span class="line-numbers"> <a href="#n3" name="n3">3</a></span><span style="color:#579">#include</span> <span style="color:#B44;font-weight:bold">&lt;time.h&gt;</span>
+<span class="line-numbers"> <a href="#n4" name="n4">4</a></span>
+<span class="line-numbers"> <a href="#n5" name="n5">5</a></span><span style="color:#579">#define</span> SIZE <span style="color:#00D">1048576</span>
+<span class="line-numbers"> <a href="#n6" name="n6">6</a></span>
+<span class="line-numbers"> <a href="#n7" name="n7">7</a></span>
+<span class="line-numbers"> <a href="#n8" name="n8">8</a></span><span style="color:#088;font-weight:bold">void</span> main(){
+<span class="line-numbers"> <a href="#n9" name="n9">9</a></span>        <span style="color:#080;font-weight:bold">struct</span> timespec start, stop;
+<span class="line-numbers"><strong><a href="#n10" name="n10">10</a></strong></span>        <span style="color:#0a8;font-weight:bold">long</span> <span style="color:#0a8;font-weight:bold">double</span> elapsed;
+<span class="line-numbers"><a href="#n11" name="n11">11</a></span>        <span style="color:#0a8;font-weight:bold">int</span> * l = (<span style="color:#0a8;font-weight:bold">int</span>*) malloc(<span style="color:#080;font-weight:bold">sizeof</span>(<span style="color:#0a8;font-weight:bold">int</span>)*SIZE);
+<span class="line-numbers"><a href="#n12" name="n12">12</a></span>        <span style="color:#080;font-weight:bold">for</span>( size_t i = <span style="color:#00D">0</span>; i &lt; SIZE; ++i){
+<span class="line-numbers"><a href="#n13" name="n13">13</a></span>                l[i]=i;
+<span class="line-numbers"><a href="#n14" name="n14">14</a></span>        }
+<span class="line-numbers"><a href="#n15" name="n15">15</a></span>        FILE * file, * files;
+<span class="line-numbers"><a href="#n16" name="n16">16</a></span>
+<span class="line-numbers"><a href="#n17" name="n17">17</a></span>        <span style="color:#777">//Writing</span>
+<span class="line-numbers"><a href="#n18" name="n18">18</a></span>        file=fopen(<span style="background-color:hsla(0,100%,50%,0.05)"><span style="color:#710">&quot;</span><span style="color:#D20">ints.bin</span><span style="color:#710">&quot;</span></span>,<span style="background-color:hsla(0,100%,50%,0.05)"><span style="color:#710">&quot;</span><span style="color:#D20">wb</span><span style="color:#710">&quot;</span></span>);
+<span class="line-numbers"><a href="#n19" name="n19">19</a></span>        files=fopen(<span style="background-color:hsla(0,100%,50%,0.05)"><span style="color:#710">&quot;</span><span style="color:#D20">/run/mount/scratch/tobias/ints.bin</span><span style="color:#710">&quot;</span></span>,<span style="background-color:hsla(0,100%,50%,0.05)"><span style="color:#710">&quot;</span><span style="color:#D20">wb</span><span style="color:#710">&quot;</span></span>);
+<span class="line-numbers"><strong><a href="#n20" name="n20">20</a></strong></span>
+<span class="line-numbers"><a href="#n21" name="n21">21</a></span>        <span style="color:#777">//HDD</span>
+<span class="line-numbers"><a href="#n22" name="n22">22</a></span>        <span style="color:#777">//TIME START, HDD</span>
+<span class="line-numbers"><a href="#n23" name="n23">23</a></span>        timespec_get(&amp;start,TIME_UTC);
+<span class="line-numbers"><a href="#n24" name="n24">24</a></span>        fwrite(l,<span style="color:#080;font-weight:bold">sizeof</span>(<span style="color:#0a8;font-weight:bold">int</span>),SIZE,file);
+<span class="line-numbers"><a href="#n25" name="n25">25</a></span>        fflush(file);
+<span class="line-numbers"><a href="#n26" name="n26">26</a></span>        timespec_get(&amp;stop,TIME_UTC);
+<span class="line-numbers"><a href="#n27" name="n27">27</a></span>        <span style="color:#777">//TIME END, HDD</span>
+<span class="line-numbers"><a href="#n28" name="n28">28</a></span>        elapsed = (stop.tv_sec + <span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*stop.tv_nsec) - (start.tv_sec + <span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*start.tv_nsec);
+<span class="line-numbers"><a href="#n29" name="n29">29</a></span>        printf(<span style="background-color:hsla(0,100%,50%,0.05)"><span style="color:#710">&quot;</span><span style="color:#D20">hdd w: %Lf10 secs.</span><span style="color:#b0b">\n</span><span style="color:#710">&quot;</span></span>,elapsed);
+<span class="line-numbers"><strong><a href="#n30" name="n30">30</a></strong></span>
+<span class="line-numbers"><a href="#n31" name="n31">31</a></span>        <span style="color:#777">//SSD</span>
+<span class="line-numbers"><a href="#n32" name="n32">32</a></span>        <span style="color:#777">//TIME START, SSD</span>
+<span class="line-numbers"><a href="#n33" name="n33">33</a></span>        timespec_get(&amp;start,TIME_UTC);
+<span class="line-numbers"><a href="#n34" name="n34">34</a></span>        fwrite(l,<span style="color:#080;font-weight:bold">sizeof</span>(<span style="color:#0a8;font-weight:bold">int</span>),SIZE,files);
+<span class="line-numbers"><a href="#n35" name="n35">35</a></span>        fflush(files);
+<span class="line-numbers"><a href="#n36" name="n36">36</a></span>        timespec_get(&amp;stop,TIME_UTC);
+<span class="line-numbers"><a href="#n37" name="n37">37</a></span>        <span style="color:#777">//TIME END, SSD</span>
+<span class="line-numbers"><a href="#n38" name="n38">38</a></span>        elapsed = (stop.tv_sec + <span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*stop.tv_nsec) - (start.tv_sec + <span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*start.tv_nsec);
+<span class="line-numbers"><a href="#n39" name="n39">39</a></span>        printf(<span style="background-color:hsla(0,100%,50%,0.05)"><span style="color:#710">&quot;</span><span style="color:#D20">ssd w: %Lf10 secs.</span><span style="color:#b0b">\n</span><span style="color:#710">&quot;</span></span>,elapsed);
+<span class="line-numbers"><strong><a href="#n40" name="n40">40</a></strong></span>
+<span class="line-numbers"><a href="#n41" name="n41">41</a></span>
+<span class="line-numbers"><a href="#n42" name="n42">42</a></span>        fclose(file);
+<span class="line-numbers"><a href="#n43" name="n43">43</a></span>        fclose(files);
+<span class="line-numbers"><a href="#n44" name="n44">44</a></span>
+<span class="line-numbers"><a href="#n45" name="n45">45</a></span>        <span style="color:#777">//Reading</span>
+<span class="line-numbers"><a href="#n46" name="n46">46</a></span>        file=fopen(<span style="background-color:hsla(0,100%,50%,0.05)"><span style="color:#710">&quot;</span><span style="color:#D20">ints.bin</span><span style="color:#710">&quot;</span></span>,<span style="background-color:hsla(0,100%,50%,0.05)"><span style="color:#710">&quot;</span><span style="color:#D20">rb</span><span style="color:#710">&quot;</span></span>);
+<span class="line-numbers"><a href="#n47" name="n47">47</a></span>        files=fopen(<span style="background-color:hsla(0,100%,50%,0.05)"><span style="color:#710">&quot;</span><span style="color:#D20">/run/mount/scratch/tobias/ints.bin</span><span style="color:#710">&quot;</span></span>,<span style="background-color:hsla(0,100%,50%,0.05)"><span style="color:#710">&quot;</span><span style="color:#D20">rb</span><span style="color:#710">&quot;</span></span>);
+<span class="line-numbers"><a href="#n48" name="n48">48</a></span>        
+<span class="line-numbers"><a href="#n49" name="n49">49</a></span>        <span style="color:#777">//HDD</span>
+<span class="line-numbers"><strong><a href="#n50" name="n50">50</a></strong></span>        <span style="color:#777">//TIME START, HDD</span>
+<span class="line-numbers"><a href="#n51" name="n51">51</a></span>        timespec_get(&amp;start,TIME_UTC);
+<span class="line-numbers"><a href="#n52" name="n52">52</a></span>        fread(l,<span style="color:#080;font-weight:bold">sizeof</span>(<span style="color:#0a8;font-weight:bold">int</span>),SIZE,file);
+<span class="line-numbers"><a href="#n53" name="n53">53</a></span>        timespec_get(&amp;stop,TIME_UTC);
+<span class="line-numbers"><a href="#n54" name="n54">54</a></span>        <span style="color:#777">//TIME END, HDD</span>
+<span class="line-numbers"><a href="#n55" name="n55">55</a></span>        elapsed = (stop.tv_sec + <span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*stop.tv_nsec) - (start.tv_sec + <span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*start.tv_nsec);
+<span class="line-numbers"><a href="#n56" name="n56">56</a></span>        printf(<span style="background-color:hsla(0,100%,50%,0.05)"><span style="color:#710">&quot;</span><span style="color:#D20">hdd r: %Lf10 secs.</span><span style="color:#b0b">\n</span><span style="color:#710">&quot;</span></span>,elapsed);
+<span class="line-numbers"><a href="#n57" name="n57">57</a></span>
+<span class="line-numbers"><a href="#n58" name="n58">58</a></span>        <span style="color:#777">//SSD</span>
+<span class="line-numbers"><a href="#n59" name="n59">59</a></span>        <span style="color:#777">//TIME START, SSD</span>
+<span class="line-numbers"><strong><a href="#n60" name="n60">60</a></strong></span>        timespec_get(&amp;start,TIME_UTC);
+<span class="line-numbers"><a href="#n61" name="n61">61</a></span>        fread(l,<span style="color:#080;font-weight:bold">sizeof</span>(<span style="color:#0a8;font-weight:bold">int</span>),SIZE,files);
+<span class="line-numbers"><a href="#n62" name="n62">62</a></span>        timespec_get(&amp;stop,TIME_UTC);
+<span class="line-numbers"><a href="#n63" name="n63">63</a></span>        <span style="color:#777">//TIME END, SSD</span>
+<span class="line-numbers"><a href="#n64" name="n64">64</a></span>        elapsed = (stop.tv_sec + <span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*stop.tv_nsec) - (start.tv_sec + <span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*start.tv_nsec);
+<span class="line-numbers"><a href="#n65" name="n65">65</a></span>        printf(<span style="background-color:hsla(0,100%,50%,0.05)"><span style="color:#710">&quot;</span><span style="color:#D20">ssd r: %Lf10 secs.</span><span style="color:#b0b">\n</span><span style="color:#710">&quot;</span></span>,elapsed);
+<span class="line-numbers"><a href="#n66" name="n66">66</a></span>
+<span class="line-numbers"><a href="#n67" name="n67">67</a></span>        fclose(file);
+<span class="line-numbers"><a href="#n68" name="n68">68</a></span>        fclose(files);
+<span class="line-numbers"><a href="#n69" name="n69">69</a></span>        free(l);
+<span class="line-numbers"><strong><a href="#n70" name="n70">70</a></strong></span>        exit(<span style="color:#00D">0</span>);
+<span class="line-numbers"><a href="#n71" name="n71">71</a></span>}
+</pre></div>
+</div>
+</div>
+
+<div class="language-bash highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"><a href="#n1" name="n1">1</a></span>[tobias@gantenbein hddssd]$ make check
+<span class="line-numbers"><a href="#n2" name="n2">2</a></span>./writeints
+<span class="line-numbers"><a href="#n3" name="n3">3</a></span>hdd w: 0.00412010 secs.
+<span class="line-numbers"><a href="#n4" name="n4">4</a></span>ssd w: 0.00374610 secs.
+<span class="line-numbers"><a href="#n5" name="n5">5</a></span>hdd r: 0.00059310 secs.
+<span class="line-numbers"><a href="#n6" name="n6">6</a></span>ssd r: 0.00056410 secs.
+</pre></div>
+</div>
+</div>
+
+<p>We see that indeed the SSD is faster, but not by a lot. This is due to the RAID setup which allows for some parallelization in the read/write operations. We expect to see the same result in the second test.</p>
+
+<p>In the second test, we have to make do with shell-scripts. They follow below and are self-explanatory.</p>
+
+<p><code>copyfromhome.sh</code>:</p>
+
+<div class="language-bash highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"><a href="#n1" name="n1">1</a></span>#copying the copy of /usr/include at /home/tobias/inc to /home/tobias/include_copy
+<span class="line-numbers"><a href="#n2" name="n2">2</a></span>for i in {1..10} ; do
+<span class="line-numbers"><a href="#n3" name="n3">3</a></span>        cp -r ~/inc ~/include_copy
+<span class="line-numbers"><a href="#n4" name="n4">4</a></span>done
+</pre></div>
+</div>
+</div>
+
+<p><code>copyfromscratch.sh</code>:</p>
+
+<div class="language-bash highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"><a href="#n1" name="n1">1</a></span>#copying the copy of /usr/include at /run/mount/scratch/tobias/include to /home/tobias/include_copy
+<span class="line-numbers"><a href="#n2" name="n2">2</a></span>for i in {1..10} ; do
+<span class="line-numbers"><a href="#n3" name="n3">3</a></span>        cp -r /run/mount/scratch/tobias/include ~/include_copy
+<span class="line-numbers"><a href="#n4" name="n4">4</a></span>done
+</pre></div>
+</div>
+</div>
+
+<p><code>copyfromscratch2scratch.sh</code>:</p>
+
+<div class="language-bash highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"><a href="#n1" name="n1">1</a></span>#copying the copy of /usr/include at /run/mount/scratch/tobias/include to /run/mount/scratch/tobias/include_copy
+<span class="line-numbers"><a href="#n2" name="n2">2</a></span>for i in {1..10} ; do
+<span class="line-numbers"><a href="#n3" name="n3">3</a></span>        cp -r /run/mount/scratch/tobias/include /run/mount/scratch/tobias/include_copy
+<span class="line-numbers"><a href="#n4" name="n4">4</a></span>done
+</pre></div>
+</div>
+</div>
+
+<p>In order to time them, simply run <code>time sh SHELLSCRIPT</code> where <code>SHELLSCRIPT</code> is the script you want to run. When I run, I get</p>
+
+<div class="language-bash highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"> <a href="#n1" name="n1">1</a></span>[tobias@gantenbein hddssd]$ time sh copyfromhome.sh 
+<span class="line-numbers"> <a href="#n2" name="n2">2</a></span>
+<span class="line-numbers"> <a href="#n3" name="n3">3</a></span>real        0m5,822s
+<span class="line-numbers"> <a href="#n4" name="n4">4</a></span>user        0m0,344s
+<span class="line-numbers"> <a href="#n5" name="n5">5</a></span>sys        0m4,970s
+<span class="line-numbers"> <a href="#n6" name="n6">6</a></span>[tobias@gantenbein hddssd]$ time sh copyfromscratch.sh
+<span class="line-numbers"> <a href="#n7" name="n7">7</a></span>
+<span class="line-numbers"> <a href="#n8" name="n8">8</a></span>real        0m5,860s
+<span class="line-numbers"> <a href="#n9" name="n9">9</a></span>user        0m0,331s
+<span class="line-numbers"><strong><a href="#n10" name="n10">10</a></strong></span>sys        0m5,017s
+<span class="line-numbers"><a href="#n11" name="n11">11</a></span>[tobias@gantenbein hddssd]$ time sh copyfromscratch2scratch.sh
+<span class="line-numbers"><a href="#n12" name="n12">12</a></span>
+<span class="line-numbers"><a href="#n13" name="n13">13</a></span>real        0m5,927s
+<span class="line-numbers"><a href="#n14" name="n14">14</a></span>user        0m0,389s
+<span class="line-numbers"><a href="#n15" name="n15">15</a></span>sys        0m5,020s
+</pre></div>
+</div>
+</div>
+
+<p>which is pretty surprising. The HDDs perform better when copying.</p>
 
 <h2 id="valgrind">Valgrind</h2>
 
+<p>This is just an intro to how <code>valgrind</code> works. Here’s the code we want to inspect.</p>
+
+<div class="language-C highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"> <a href="#n1" name="n1">1</a></span><span style="color:#579">#include</span> <span style="color:#B44;font-weight:bold">&lt;stdio.h&gt;</span>
+<span class="line-numbers"> <a href="#n2" name="n2">2</a></span><span style="color:#579">#include</span> <span style="color:#B44;font-weight:bold">&lt;stdlib.h&gt;</span>
+<span class="line-numbers"> <a href="#n3" name="n3">3</a></span>
+<span class="line-numbers"> <a href="#n4" name="n4">4</a></span><span style="color:#579">#define</span> N <span style="color:#00D">1000000000</span>
+<span class="line-numbers"> <a href="#n5" name="n5">5</a></span>
+<span class="line-numbers"> <a href="#n6" name="n6">6</a></span><span style="color:#088;font-weight:bold">void</span> allocateints(){
+<span class="line-numbers"> <a href="#n7" name="n7">7</a></span>        <span style="color:#0a8;font-weight:bold">int</span> * l = (<span style="color:#0a8;font-weight:bold">int</span> *)malloc(<span style="color:#080;font-weight:bold">sizeof</span>(<span style="color:#0a8;font-weight:bold">int</span>)*<span style="color:#00D">1000</span>);
+<span class="line-numbers"> <a href="#n8" name="n8">8</a></span>}
+<span class="line-numbers"> <a href="#n9" name="n9">9</a></span>
+<span class="line-numbers"><strong><a href="#n10" name="n10">10</a></strong></span><span style="color:#0a8;font-weight:bold">int</span> main(){
+<span class="line-numbers"><a href="#n11" name="n11">11</a></span>        allocateints();
+<span class="line-numbers"><a href="#n12" name="n12">12</a></span>        <span style="color:#0a8;font-weight:bold">long</span> sum = <span style="color:#00D">0</span>;
+<span class="line-numbers"><a href="#n13" name="n13">13</a></span>        <span style="color:#080;font-weight:bold">for</span>(size_t i=<span style="color:#00D">0</span>; i &lt; N; ++i)
+<span class="line-numbers"><a href="#n14" name="n14">14</a></span>                sum+=i;
+<span class="line-numbers"><a href="#n15" name="n15">15</a></span>        printf(<span style="background-color:hsla(0,100%,50%,0.05)"><span style="color:#710">&quot;</span><span style="color:#D20">sum = %ld</span><span style="color:#b0b">\n</span><span style="color:#710">&quot;</span></span>,sum);
+<span class="line-numbers"><a href="#n16" name="n16">16</a></span>        <span style="color:#080;font-weight:bold">return</span> <span style="color:#00D">0</span>;
+<span class="line-numbers"><a href="#n17" name="n17">17</a></span>}
+</pre></div>
+</div>
+</div>
+
+<p>Here’s the <code>makefile</code>.</p>
+
+<div class="language-make highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"> <a href="#n1" name="n1">1</a></span>.PHONY : val clean all
+<span class="line-numbers"> <a href="#n2" name="n2">2</a></span>
+<span class="line-numbers"> <a href="#n3" name="n3">3</a></span>all : valgO2 valgO0
+<span class="line-numbers"> <a href="#n4" name="n4">4</a></span>
+<span class="line-numbers"> <a href="#n5" name="n5">5</a></span>valgO2 : valg.c
+<span class="line-numbers"> <a href="#n6" name="n6">6</a></span>        gcc -O2 -std=c11 -march=native -o valgO2 valg.c
+<span class="line-numbers"> <a href="#n7" name="n7">7</a></span>valgO0 : valg.c
+<span class="line-numbers"> <a href="#n8" name="n8">8</a></span>        gcc -O0 -std=c11 -march=native -o valgO0 valg.c
+<span class="line-numbers"> <a href="#n9" name="n9">9</a></span>
+<span class="line-numbers"><strong><a href="#n10" name="n10">10</a></strong></span>val :
+<span class="line-numbers"><a href="#n11" name="n11">11</a></span>        valgrind --tool=memcheck --leak-check=yes ./valgO0
+<span class="line-numbers"><a href="#n12" name="n12">12</a></span>        valgrind --tool=memcheck --leak-check=yes ./valgO2
+<span class="line-numbers"><a href="#n13" name="n13">13</a></span>
+<span class="line-numbers"><a href="#n14" name="n14">14</a></span>clean :
+<span class="line-numbers"><a href="#n15" name="n15">15</a></span>        rm -f valgO*
+</pre></div>
+</div>
+</div>
+
+<p>And here’s a transcript of the output we get when running <code>make val</code>.</p>
+
+<div class="language-bash highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"> <a href="#n1" name="n1">1</a></span>[tobias@gantenbein valgrind]$ make check
+<span class="line-numbers"> <a href="#n2" name="n2">2</a></span>make: *** No rule to make target 'check'.  Stop.
+<span class="line-numbers"> <a href="#n3" name="n3">3</a></span>[tobias@gantenbein valgrind]$ make val
+<span class="line-numbers"> <a href="#n4" name="n4">4</a></span>valgrind --tool=memcheck --leak-check=yes ./valgO0
+<span class="line-numbers"> <a href="#n5" name="n5">5</a></span>==97818== Memcheck, a memory error detector
+<span class="line-numbers"> <a href="#n6" name="n6">6</a></span>==97818== Copyright (C) 2002-2017, and GNU GPL'd, by Julian Seward et al.
+<span class="line-numbers"> <a href="#n7" name="n7">7</a></span>==97818== Using Valgrind-3.13.0 and LibVEX; rerun with -h for copyright info
+<span class="line-numbers"> <a href="#n8" name="n8">8</a></span>==97818== Command: ./valgO0
+<span class="line-numbers"> <a href="#n9" name="n9">9</a></span>==97818== 
+<span class="line-numbers"><strong><a href="#n10" name="n10">10</a></strong></span>sum = 499999999500000000
+<span class="line-numbers"><a href="#n11" name="n11">11</a></span>==97818== 
+<span class="line-numbers"><a href="#n12" name="n12">12</a></span>==97818== HEAP SUMMARY:
+<span class="line-numbers"><a href="#n13" name="n13">13</a></span>==97818==     in use at exit: 4,000 bytes in 1 blocks
+<span class="line-numbers"><a href="#n14" name="n14">14</a></span>==97818==   total heap usage: 2 allocs, 1 frees, 5,024 bytes allocated
+<span class="line-numbers"><a href="#n15" name="n15">15</a></span>==97818== 
+<span class="line-numbers"><a href="#n16" name="n16">16</a></span>==97818== 4,000 bytes in 1 blocks are definitely lost in loss record 1 of 1
+<span class="line-numbers"><a href="#n17" name="n17">17</a></span>==97818==    at 0x4C2EBAB: malloc (vg_replace_malloc.c:299)
+<span class="line-numbers"><a href="#n18" name="n18">18</a></span>==97818==    by 0x400547: allocateints (in /home/tobias/GIT/HPC/assignment1/valgrind/valgO0)
+<span class="line-numbers"><a href="#n19" name="n19">19</a></span>==97818==    by 0x400560: main (in /home/tobias/GIT/HPC/assignment1/valgrind/valgO0)
+<span class="line-numbers"><strong><a href="#n20" name="n20">20</a></strong></span>==97818== 
+<span class="line-numbers"><a href="#n21" name="n21">21</a></span>==97818== LEAK SUMMARY:
+<span class="line-numbers"><a href="#n22" name="n22">22</a></span>==97818==    definitely lost: 4,000 bytes in 1 blocks
+<span class="line-numbers"><a href="#n23" name="n23">23</a></span>==97818==    indirectly lost: 0 bytes in 0 blocks
+<span class="line-numbers"><a href="#n24" name="n24">24</a></span>==97818==      possibly lost: 0 bytes in 0 blocks
+<span class="line-numbers"><a href="#n25" name="n25">25</a></span>==97818==    still reachable: 0 bytes in 0 blocks
+<span class="line-numbers"><a href="#n26" name="n26">26</a></span>==97818==         suppressed: 0 bytes in 0 blocks
+<span class="line-numbers"><a href="#n27" name="n27">27</a></span>==97818== 
+<span class="line-numbers"><a href="#n28" name="n28">28</a></span>==97818== For counts of detected and suppressed errors, rerun with: -v
+<span class="line-numbers"><a href="#n29" name="n29">29</a></span>==97818== ERROR SUMMARY: 1 errors from 1 contexts (suppressed: 0 from 0)
+<span class="line-numbers"><strong><a href="#n30" name="n30">30</a></strong></span>valgrind --tool=memcheck --leak-check=yes ./valgO2
+<span class="line-numbers"><a href="#n31" name="n31">31</a></span>==97875== Memcheck, a memory error detector
+<span class="line-numbers"><a href="#n32" name="n32">32</a></span>==97875== Copyright (C) 2002-2017, and GNU GPL'd, by Julian Seward et al.
+<span class="line-numbers"><a href="#n33" name="n33">33</a></span>==97875== Using Valgrind-3.13.0 and LibVEX; rerun with -h for copyright info
+<span class="line-numbers"><a href="#n34" name="n34">34</a></span>==97875== Command: ./valgO2
+<span class="line-numbers"><a href="#n35" name="n35">35</a></span>==97875== 
+<span class="line-numbers"><a href="#n36" name="n36">36</a></span>sum = 499999999500000000
+<span class="line-numbers"><a href="#n37" name="n37">37</a></span>==97875== 
+<span class="line-numbers"><a href="#n38" name="n38">38</a></span>==97875== HEAP SUMMARY:
+<span class="line-numbers"><a href="#n39" name="n39">39</a></span>==97875==     in use at exit: 0 bytes in 0 blocks
+<span class="line-numbers"><strong><a href="#n40" name="n40">40</a></strong></span>==97875==   total heap usage: 1 allocs, 1 frees, 1,024 bytes allocated
+<span class="line-numbers"><a href="#n41" name="n41">41</a></span>==97875== 
+<span class="line-numbers"><a href="#n42" name="n42">42</a></span>==97875== All heap blocks were freed -- no leaks are possible
+<span class="line-numbers"><a href="#n43" name="n43">43</a></span>==97875== 
+<span class="line-numbers"><a href="#n44" name="n44">44</a></span>==97875== For counts of detected and suppressed errors, rerun with: -v
+<span class="line-numbers"><a href="#n45" name="n45">45</a></span>==97875== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+</pre></div>
+</div>
+</div>
+
+<p>whence all memory leaks are clear. We see also that with the <code>-O2</code> flag, <code>gcc</code> is kind enough to stop the leak.</p>
+
 <h2 id="profiling">Profiling</h2>
+
+<p>In this exercise, we use <code>gprof</code> and <code>gcov</code> on the code from the locality exercise. Again, we use bash scripts.</p>
+
+<p><code>gcov_.sh</code>:</p>
+
+<div class="language-bash highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"><a href="#n1" name="n1">1</a></span>echo &quot;gprof-ing locality&quot;
+<span class="line-numbers"><a href="#n2" name="n2">2</a></span>cd /home/tobias/GIT/HPC/assignment1/locality
+<span class="line-numbers"><a href="#n3" name="n3">3</a></span>make
+<span class="line-numbers"><a href="#n4" name="n4">4</a></span>echo &quot;executing&quot;
+<span class="line-numbers"><a href="#n5" name="n5">5</a></span>./locality_fast0_cov
+<span class="line-numbers"><a href="#n6" name="n6">6</a></span>echo &quot;gcov-ing&quot;
+<span class="line-numbers"><a href="#n7" name="n7">7</a></span>gcov locality_fast.c
+<span class="line-numbers"><a href="#n8" name="n8">8</a></span>cat locality_fast.c.gcov
+</pre></div>
+</div>
+</div>
+
+<p><code>gprof_.sh</code>:</p>
+
+<div class="language-bash highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"> <a href="#n1" name="n1">1</a></span>echo &quot;gprof-ing locality&quot;
+<span class="line-numbers"> <a href="#n2" name="n2">2</a></span>cd /home/tobias/GIT/HPC/assignment1/locality
+<span class="line-numbers"> <a href="#n3" name="n3">3</a></span>make
+<span class="line-numbers"> <a href="#n4" name="n4">4</a></span>echo &quot;Running fast0 to get gmon.out&quot;
+<span class="line-numbers"> <a href="#n5" name="n5">5</a></span>./locality_fast0
+<span class="line-numbers"> <a href="#n6" name="n6">6</a></span>echo &quot;gprof of fast0&quot;
+<span class="line-numbers"> <a href="#n7" name="n7">7</a></span>gprof locality_fast0
+<span class="line-numbers"> <a href="#n8" name="n8">8</a></span>echo &quot;Running fast2 to get gmon.out&quot;
+<span class="line-numbers"> <a href="#n9" name="n9">9</a></span>./locality_fast2
+<span class="line-numbers"><strong><a href="#n10" name="n10">10</a></strong></span>echo &quot;gprof of fast2&quot;
+<span class="line-numbers"><a href="#n11" name="n11">11</a></span>gprof locality_fast2
+</pre></div>
+</div>
+</div>
+
+<p>Note that this is where the flags <code>-ftest-coverage -fprofile-arcs</code> that we used in the <code>makefile</code> for locality comes in. We need them for <code>gprof</code> and <code>gcov</code>.</p>
+
+<p>The output from <code>gcov</code> shows how many times we run certain lines in the code, and that’s not super interesting in our case. It’s much more interesting to look at the output from <code>gprof</code>, see below.</p>
+
+<div class="language-bash highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers">  <a href="#n1" name="n1">1</a></span>[tobias@gantenbein profiling]$ sh gprof_.sh 
+<span class="line-numbers">  <a href="#n2" name="n2">2</a></span>gprof-ing locality
+<span class="line-numbers">  <a href="#n3" name="n3">3</a></span>gcc -std=c11 -march=native -pg -O0 -o locality0 locality.c
+<span class="line-numbers">  <a href="#n4" name="n4">4</a></span>gcc -std=c11 -march=native -pg -O2 -o locality2 locality.c
+<span class="line-numbers">  <a href="#n5" name="n5">5</a></span>gcc -std=c11 -march=native -pg -O0 -o locality_fast0 locality_fast.c
+<span class="line-numbers">  <a href="#n6" name="n6">6</a></span>gcc -std=c11 -march=native -pg -O0 -ftest-coverage -fprofile-arcs -o locality_fast0_cov locality_fast.c
+<span class="line-numbers">  <a href="#n7" name="n7">7</a></span>gcc -std=c11 -march=native -pg -O2 -o locality_fast2 locality_fast.c
+<span class="line-numbers">  <a href="#n8" name="n8">8</a></span>Running fast0 to get gmon.out
+<span class="line-numbers">  <a href="#n9" name="n9">9</a></span>0.00358410 secs for row sums.
+<span class="line-numbers"> <strong><a href="#n10" name="n10">10</a></strong></span>0.00450510 secs for col sums.
+<span class="line-numbers"> <a href="#n11" name="n11">11</a></span>0.00371810 secs for row col sums.
+<span class="line-numbers"> <a href="#n12" name="n12">12</a></span>gprof of fast0
+<span class="line-numbers"> <a href="#n13" name="n13">13</a></span>Flat profile:
+<span class="line-numbers"> <a href="#n14" name="n14">14</a></span>
+<span class="line-numbers"> <a href="#n15" name="n15">15</a></span>Each sample counts as 0.01 seconds.
+<span class="line-numbers"> <a href="#n16" name="n16">16</a></span>  %   cumulative   self              self     total           
+<span class="line-numbers"> <a href="#n17" name="n17">17</a></span> time   seconds   seconds    calls  ms/call  ms/call  name    
+<span class="line-numbers"> <a href="#n18" name="n18">18</a></span> 50.11      0.01     0.01        1    10.02    10.02  col_sums
+<span class="line-numbers"> <a href="#n19" name="n19">19</a></span> 50.11      0.02     0.01                             main
+<span class="line-numbers"> <strong><a href="#n20" name="n20">20</a></strong></span>  0.00      0.02     0.00        1     0.00     0.00  row_sums
+<span class="line-numbers"> <a href="#n21" name="n21">21</a></span>  0.00      0.02     0.00        1     0.00     0.00  rowcol_sums
+<span class="line-numbers"> <a href="#n22" name="n22">22</a></span>
+<span class="line-numbers"> <a href="#n23" name="n23">23</a></span> %         the percentage of the total running time of the
+<span class="line-numbers"> <a href="#n24" name="n24">24</a></span>time       program used by this function.
+<span class="line-numbers"> <a href="#n25" name="n25">25</a></span>
+<span class="line-numbers"> <a href="#n26" name="n26">26</a></span>cumulative a running sum of the number of seconds accounted
+<span class="line-numbers"> <a href="#n27" name="n27">27</a></span> seconds   for by this function and those listed above it.
+<span class="line-numbers"> <a href="#n28" name="n28">28</a></span>
+<span class="line-numbers"> <a href="#n29" name="n29">29</a></span> self      the number of seconds accounted for by this
+<span class="line-numbers"> <strong><a href="#n30" name="n30">30</a></strong></span>seconds    function alone.  This is the major sort for this
+<span class="line-numbers"> <a href="#n31" name="n31">31</a></span>           listing.
+<span class="line-numbers"> <a href="#n32" name="n32">32</a></span>
+<span class="line-numbers"> <a href="#n33" name="n33">33</a></span>calls      the number of times this function was invoked, if
+<span class="line-numbers"> <a href="#n34" name="n34">34</a></span>           this function is profiled, else blank.
+<span class="line-numbers"> <a href="#n35" name="n35">35</a></span>
+<span class="line-numbers"> <a href="#n36" name="n36">36</a></span> self      the average number of milliseconds spent in this
+<span class="line-numbers"> <a href="#n37" name="n37">37</a></span>ms/call    function per call, if this function is profiled,
+<span class="line-numbers"> <a href="#n38" name="n38">38</a></span>           else blank.
+<span class="line-numbers"> <a href="#n39" name="n39">39</a></span>
+<span class="line-numbers"> <strong><a href="#n40" name="n40">40</a></strong></span> total     the average number of milliseconds spent in this
+<span class="line-numbers"> <a href="#n41" name="n41">41</a></span>ms/call    function and its descendents per call, if this
+<span class="line-numbers"> <a href="#n42" name="n42">42</a></span>           function is profiled, else blank.
+<span class="line-numbers"> <a href="#n43" name="n43">43</a></span>
+<span class="line-numbers"> <a href="#n44" name="n44">44</a></span>name       the name of the function.  This is the minor sort
+<span class="line-numbers"> <a href="#n45" name="n45">45</a></span>           for this listing. The index shows the location of
+<span class="line-numbers"> <a href="#n46" name="n46">46</a></span>           the function in the gprof listing. If the index is
+<span class="line-numbers"> <a href="#n47" name="n47">47</a></span>           in parenthesis it shows where it would appear in
+<span class="line-numbers"> <a href="#n48" name="n48">48</a></span>           the gprof listing if it were to be printed.
+<span class="line-numbers"> <a href="#n49" name="n49">49</a></span>
+<span class="line-numbers"> <strong><a href="#n50" name="n50">50</a></strong></span>
+<span class="line-numbers"> <a href="#n51" name="n51">51</a></span>Copyright (C) 2012-2017 Free Software Foundation, Inc.
+<span class="line-numbers"> <a href="#n52" name="n52">52</a></span>
+<span class="line-numbers"> <a href="#n53" name="n53">53</a></span>Copying and distribution of this file, with or without modification,
+<span class="line-numbers"> <a href="#n54" name="n54">54</a></span>are permitted in any medium without royalty provided the copyright
+<span class="line-numbers"> <a href="#n55" name="n55">55</a></span>notice and this notice are preserved.
+<span class="line-numbers"> <a href="#n56" name="n56">56</a></span>
+<span class="line-numbers"> <a href="#n57" name="n57">57</a></span>
+<span class="line-numbers"> <a href="#n58" name="n58">58</a></span>                     Call graph (explanation follows)
+<span class="line-numbers"> <a href="#n59" name="n59">59</a></span>
+<span class="line-numbers"> <strong><a href="#n60" name="n60">60</a></strong></span>
+<span class="line-numbers"> <a href="#n61" name="n61">61</a></span>granularity: each sample hit covers 2 byte(s) for 49.89% of 0.02 seconds
+<span class="line-numbers"> <a href="#n62" name="n62">62</a></span>
+<span class="line-numbers"> <a href="#n63" name="n63">63</a></span>index % time    self  children    called     name
+<span class="line-numbers"> <a href="#n64" name="n64">64</a></span>                                                 &lt;spontaneous&gt;
+<span class="line-numbers"> <a href="#n65" name="n65">65</a></span>[1]    100.0    0.01    0.01                 main [1]
+<span class="line-numbers"> <a href="#n66" name="n66">66</a></span>                0.01    0.00       1/1           col_sums [2]
+<span class="line-numbers"> <a href="#n67" name="n67">67</a></span>                0.00    0.00       1/1           row_sums [3]
+<span class="line-numbers"> <a href="#n68" name="n68">68</a></span>                0.00    0.00       1/1           rowcol_sums [4]
+<span class="line-numbers"> <a href="#n69" name="n69">69</a></span>-----------------------------------------------
+<span class="line-numbers"> <strong><a href="#n70" name="n70">70</a></strong></span>                0.01    0.00       1/1           main [1]
+<span class="line-numbers"> <a href="#n71" name="n71">71</a></span>[2]     50.0    0.01    0.00       1         col_sums [2]
+<span class="line-numbers"> <a href="#n72" name="n72">72</a></span>-----------------------------------------------
+<span class="line-numbers"> <a href="#n73" name="n73">73</a></span>                0.00    0.00       1/1           main [1]
+<span class="line-numbers"> <a href="#n74" name="n74">74</a></span>[3]      0.0    0.00    0.00       1         row_sums [3]
+<span class="line-numbers"> <a href="#n75" name="n75">75</a></span>-----------------------------------------------
+<span class="line-numbers"> <a href="#n76" name="n76">76</a></span>                0.00    0.00       1/1           main [1]
+<span class="line-numbers"> <a href="#n77" name="n77">77</a></span>[4]      0.0    0.00    0.00       1         rowcol_sums [4]
+<span class="line-numbers"> <a href="#n78" name="n78">78</a></span>-----------------------------------------------
+<span class="line-numbers"> <a href="#n79" name="n79">79</a></span>
+<span class="line-numbers"> <strong><a href="#n80" name="n80">80</a></strong></span> This table describes the call tree of the program, and was sorted by
+<span class="line-numbers"> <a href="#n81" name="n81">81</a></span> the total amount of time spent in each function and its children.
+<span class="line-numbers"> <a href="#n82" name="n82">82</a></span>
+<span class="line-numbers"> <a href="#n83" name="n83">83</a></span> Each entry in this table consists of several lines.  The line with the
+<span class="line-numbers"> <a href="#n84" name="n84">84</a></span> index number at the left hand margin lists the current function.
+<span class="line-numbers"> <a href="#n85" name="n85">85</a></span> The lines above it list the functions that called this function,
+<span class="line-numbers"> <a href="#n86" name="n86">86</a></span> and the lines below it list the functions this one called.
+<span class="line-numbers"> <a href="#n87" name="n87">87</a></span> This line lists:
+<span class="line-numbers"> <a href="#n88" name="n88">88</a></span>     index        A unique number given to each element of the table.
+<span class="line-numbers"> <a href="#n89" name="n89">89</a></span>                Index numbers are sorted numerically.
+<span class="line-numbers"> <strong><a href="#n90" name="n90">90</a></strong></span>                The index number is printed next to every function name so
+<span class="line-numbers"> <a href="#n91" name="n91">91</a></span>                it is easier to look up where the function is in the table.
+<span class="line-numbers"> <a href="#n92" name="n92">92</a></span>
+<span class="line-numbers"> <a href="#n93" name="n93">93</a></span>     % time        This is the percentage of the `total' time that was spent
+<span class="line-numbers"> <a href="#n94" name="n94">94</a></span>                in this function and its children.  Note that due to
+<span class="line-numbers"> <a href="#n95" name="n95">95</a></span>                different viewpoints, functions excluded by options, etc,
+<span class="line-numbers"> <a href="#n96" name="n96">96</a></span>                these numbers will NOT add up to 100%.
+<span class="line-numbers"> <a href="#n97" name="n97">97</a></span>
+<span class="line-numbers"> <a href="#n98" name="n98">98</a></span>     self        This is the total amount of time spent in this function.
+<span class="line-numbers"> <a href="#n99" name="n99">99</a></span>
+<span class="line-numbers"><strong><a href="#n100" name="n100">100</a></strong></span>     children        This is the total amount of time propagated into this
+<span class="line-numbers"><a href="#n101" name="n101">101</a></span>                function by its children.
+<span class="line-numbers"><a href="#n102" name="n102">102</a></span>
+<span class="line-numbers"><a href="#n103" name="n103">103</a></span>     called        This is the number of times the function was called.
+<span class="line-numbers"><a href="#n104" name="n104">104</a></span>                If the function called itself recursively, the number
+<span class="line-numbers"><a href="#n105" name="n105">105</a></span>                only includes non-recursive calls, and is followed by
+<span class="line-numbers"><a href="#n106" name="n106">106</a></span>                a `+' and the number of recursive calls.
+<span class="line-numbers"><a href="#n107" name="n107">107</a></span>
+<span class="line-numbers"><a href="#n108" name="n108">108</a></span>     name        The name of the current function.  The index number is
+<span class="line-numbers"><a href="#n109" name="n109">109</a></span>                printed after it.  If the function is a member of a
+<span class="line-numbers"><strong><a href="#n110" name="n110">110</a></strong></span>                cycle, the cycle number is printed between the
+<span class="line-numbers"><a href="#n111" name="n111">111</a></span>                function's name and the index number.
+<span class="line-numbers"><a href="#n112" name="n112">112</a></span>
+<span class="line-numbers"><a href="#n113" name="n113">113</a></span>
+<span class="line-numbers"><a href="#n114" name="n114">114</a></span> For the function's parents, the fields have the following meanings:
+<span class="line-numbers"><a href="#n115" name="n115">115</a></span>
+<span class="line-numbers"><a href="#n116" name="n116">116</a></span>     self        This is the amount of time that was propagated directly
+<span class="line-numbers"><a href="#n117" name="n117">117</a></span>                from the function into this parent.
+<span class="line-numbers"><a href="#n118" name="n118">118</a></span>
+<span class="line-numbers"><a href="#n119" name="n119">119</a></span>     children        This is the amount of time that was propagated from
+<span class="line-numbers"><strong><a href="#n120" name="n120">120</a></strong></span>                the function's children into this parent.
+<span class="line-numbers"><a href="#n121" name="n121">121</a></span>
+<span class="line-numbers"><a href="#n122" name="n122">122</a></span>     called        This is the number of times this parent called the
+<span class="line-numbers"><a href="#n123" name="n123">123</a></span>                function `/' the total number of times the function
+<span class="line-numbers"><a href="#n124" name="n124">124</a></span>                was called.  Recursive calls to the function are not
+<span class="line-numbers"><a href="#n125" name="n125">125</a></span>                included in the number after the `/'.
+<span class="line-numbers"><a href="#n126" name="n126">126</a></span>
+<span class="line-numbers"><a href="#n127" name="n127">127</a></span>     name        This is the name of the parent.  The parent's index
+<span class="line-numbers"><a href="#n128" name="n128">128</a></span>                number is printed after it.  If the parent is a
+<span class="line-numbers"><a href="#n129" name="n129">129</a></span>                member of a cycle, the cycle number is printed between
+<span class="line-numbers"><strong><a href="#n130" name="n130">130</a></strong></span>                the name and the index number.
+<span class="line-numbers"><a href="#n131" name="n131">131</a></span>
+<span class="line-numbers"><a href="#n132" name="n132">132</a></span> If the parents of the function cannot be determined, the word
+<span class="line-numbers"><a href="#n133" name="n133">133</a></span> `&lt;spontaneous&gt;' is printed in the `name' field, and all the other
+<span class="line-numbers"><a href="#n134" name="n134">134</a></span> fields are blank.
+<span class="line-numbers"><a href="#n135" name="n135">135</a></span>
+<span class="line-numbers"><a href="#n136" name="n136">136</a></span> For the function's children, the fields have the following meanings:
+<span class="line-numbers"><a href="#n137" name="n137">137</a></span>
+<span class="line-numbers"><a href="#n138" name="n138">138</a></span>     self        This is the amount of time that was propagated directly
+<span class="line-numbers"><a href="#n139" name="n139">139</a></span>                from the child into the function.
+<span class="line-numbers"><strong><a href="#n140" name="n140">140</a></strong></span>
+<span class="line-numbers"><a href="#n141" name="n141">141</a></span>     children        This is the amount of time that was propagated from the
+<span class="line-numbers"><a href="#n142" name="n142">142</a></span>                child's children to the function.
+<span class="line-numbers"><a href="#n143" name="n143">143</a></span>
+<span class="line-numbers"><a href="#n144" name="n144">144</a></span>     called        This is the number of times the function called
+<span class="line-numbers"><a href="#n145" name="n145">145</a></span>                this child `/' the total number of times the child
+<span class="line-numbers"><a href="#n146" name="n146">146</a></span>                was called.  Recursive calls by the child are not
+<span class="line-numbers"><a href="#n147" name="n147">147</a></span>                listed in the number after the `/'.
+<span class="line-numbers"><a href="#n148" name="n148">148</a></span>
+<span class="line-numbers"><a href="#n149" name="n149">149</a></span>     name        This is the name of the child.  The child's index
+<span class="line-numbers"><strong><a href="#n150" name="n150">150</a></strong></span>                number is printed after it.  If the child is a
+<span class="line-numbers"><a href="#n151" name="n151">151</a></span>                member of a cycle, the cycle number is printed
+<span class="line-numbers"><a href="#n152" name="n152">152</a></span>                between the name and the index number.
+<span class="line-numbers"><a href="#n153" name="n153">153</a></span>
+<span class="line-numbers"><a href="#n154" name="n154">154</a></span> If there are any cycles (circles) in the call graph, there is an
+<span class="line-numbers"><a href="#n155" name="n155">155</a></span> entry for the cycle-as-a-whole.  This entry shows who called the
+<span class="line-numbers"><a href="#n156" name="n156">156</a></span> cycle (as parents) and the members of the cycle (as children.)
+<span class="line-numbers"><a href="#n157" name="n157">157</a></span> The `+' recursive calls entry shows the number of function calls that
+<span class="line-numbers"><a href="#n158" name="n158">158</a></span> were internal to the cycle, and the calls entry for each member shows,
+<span class="line-numbers"><a href="#n159" name="n159">159</a></span> for that member, how many times it was called from other members of
+<span class="line-numbers"><strong><a href="#n160" name="n160">160</a></strong></span> the cycle.
+<span class="line-numbers"><a href="#n161" name="n161">161</a></span>
+<span class="line-numbers"><a href="#n162" name="n162">162</a></span>
+<span class="line-numbers"><a href="#n163" name="n163">163</a></span>Copyright (C) 2012-2017 Free Software Foundation, Inc.
+<span class="line-numbers"><a href="#n164" name="n164">164</a></span>
+<span class="line-numbers"><a href="#n165" name="n165">165</a></span>Copying and distribution of this file, with or without modification,
+<span class="line-numbers"><a href="#n166" name="n166">166</a></span>are permitted in any medium without royalty provided the copyright
+<span class="line-numbers"><a href="#n167" name="n167">167</a></span>notice and this notice are preserved.
+<span class="line-numbers"><a href="#n168" name="n168">168</a></span>
+<span class="line-numbers"><a href="#n169" name="n169">169</a></span>
+<span class="line-numbers"><strong><a href="#n170" name="n170">170</a></strong></span>Index by function name
+<span class="line-numbers"><a href="#n171" name="n171">171</a></span>
+<span class="line-numbers"><a href="#n172" name="n172">172</a></span>   [2] col_sums                [3] row_sums
+<span class="line-numbers"><a href="#n173" name="n173">173</a></span>   [1] main                    [4] rowcol_sums
+</pre></div>
+</div>
+</div>
+
+<p>As expected, most of the time is spent on <code>col_sums</code>. However, we don’t always see this result. What gives the most accurate result is to average, see <a href="ftp://ftp.gnu.org/old-gnu/Manuals/gprof-2.9.1/html_chapter/gprof_6.html">here</a>. See also the below bash script</p>
+
+<p><code>gprof_stat.sh</code>:</p>
+
+<div class="language-bash highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"> <a href="#n1" name="n1">1</a></span>echo &quot;averaging the gprof results&quot;
+<span class="line-numbers"> <a href="#n2" name="n2">2</a></span>cd /home/tobias/GIT/HPC/assignment1/locality
+<span class="line-numbers"> <a href="#n3" name="n3">3</a></span>echo &quot;Running fast0 to get gmon.out&quot;
+<span class="line-numbers"> <a href="#n4" name="n4">4</a></span>./locality_fast0
+<span class="line-numbers"> <a href="#n5" name="n5">5</a></span>mv gmon.out gmon.sum
+<span class="line-numbers"> <a href="#n6" name="n6">6</a></span>for i in {1..100} ; do
+<span class="line-numbers"> <a href="#n7" name="n7">7</a></span>        echo $i
+<span class="line-numbers"> <a href="#n8" name="n8">8</a></span>        ./locality_fast0
+<span class="line-numbers"> <a href="#n9" name="n9">9</a></span>        gprof -s ./locality_fast0 gmon.out gmon.sum
+<span class="line-numbers"><strong><a href="#n10" name="n10">10</a></strong></span>done
+<span class="line-numbers"><a href="#n11" name="n11">11</a></span>gprof ./locality_fast0 gmon.sum &gt; /home/tobias/GIT/HPC/assignment1/profiling/averaged.txt
+<span class="line-numbers"><a href="#n12" name="n12">12</a></span>cd /home/tobias/GIT/HPC/assignment1/profiling
+<span class="line-numbers"><a href="#n13" name="n13">13</a></span>cat averaged.txt
+</pre></div>
+</div>
+</div>
+
+<p>The result is quite surprising. Here’s a snippet.</p>
+
+<pre><code>Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  ms/call  ms/call  name    
+ 39.08      2.86     2.86      501     5.70     5.70  rowcol_sums
+ 31.12      5.13     2.28      501     4.54     4.54  row_sums
+ 21.53      6.71     1.57                             main
+  8.50      7.33     0.62      501     1.24     1.24  col_sums
+</code></pre>
+
+<p>So <code>gprof</code> indicates the opposite of what the actual timing does. What gives? [Seriously, I don’t know.]</p>
