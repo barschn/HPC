@@ -391,7 +391,320 @@ Breakpoint 1, main (argc=2, argv=0x7fffffffdf68) at bigsum.c:15
 
 <p>where <code>TYPE</code> can be either <code>mainfile</code> or <code>separatefile</code>, depending on whether we measure variant 1, 2, or 3.</p>
 
+<p>In order to make sure that variant 2 doesn’t get inlined, construct a <code>makefile</code> along the lines of the following.</p>
+
+<div class="language-make highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"> <a href="#n1" name="n1">1</a></span>CFLAGS=-std=c11 -march=native -O2
+<span class="line-numbers"> <a href="#n2" name="n2">2</a></span>TARGETS=mainfile inlined separatefile
+<span class="line-numbers"> <a href="#n3" name="n3">3</a></span>
+<span class="line-numbers"> <a href="#n4" name="n4">4</a></span>.PHONY : all clean check
+<span class="line-numbers"> <a href="#n5" name="n5">5</a></span>
+<span class="line-numbers"> <a href="#n6" name="n6">6</a></span>all : $(TARGETS)
+<span class="line-numbers"> <a href="#n7" name="n7">7</a></span>
+<span class="line-numbers"> <a href="#n8" name="n8">8</a></span>inlined : inlined.c
+<span class="line-numbers"> <a href="#n9" name="n9">9</a></span>        gcc $(CFLAGS) -o inlined inlined.c
+<span class="line-numbers"><strong><a href="#n10" name="n10">10</a></strong></span>
+<span class="line-numbers"><a href="#n11" name="n11">11</a></span>mainfile : mainfile.c
+<span class="line-numbers"><a href="#n12" name="n12">12</a></span>        gcc $(CFLAGS) -o mainfile mainfile.c
+<span class="line-numbers"><a href="#n13" name="n13">13</a></span>
+<span class="line-numbers"><a href="#n14" name="n14">14</a></span>separatefile: separatefile.c mul_cpx_separatefile.h libsep.a
+<span class="line-numbers"><a href="#n15" name="n15">15</a></span>        gcc $(CFLAGS) -o separatefile separatefile.c -I. -L. -lsep
+<span class="line-numbers"><a href="#n16" name="n16">16</a></span>
+<span class="line-numbers"><a href="#n17" name="n17">17</a></span>libsep.a : mul_cpx_separatefile.o
+<span class="line-numbers"><a href="#n18" name="n18">18</a></span>        ar -r libsep.a mul_cpx_separatefile.o
+<span class="line-numbers"><a href="#n19" name="n19">19</a></span>
+<span class="line-numbers"><strong><a href="#n20" name="n20">20</a></strong></span>mul_cpx_separatefile.o : mul_cpx_separatefile.c mul_cpx_separatefile.h
+<span class="line-numbers"><a href="#n21" name="n21">21</a></span>
+<span class="line-numbers"><a href="#n22" name="n22">22</a></span>clean :
+<span class="line-numbers"><a href="#n23" name="n23">23</a></span>        echo &quot;Cleaning up&quot;
+<span class="line-numbers"><a href="#n24" name="n24">24</a></span>        rm -f $(TARGETS)
+<span class="line-numbers"><a href="#n25" name="n25">25</a></span>        rm -f *.o
+<span class="line-numbers"><a href="#n26" name="n26">26</a></span>        rm -f *.a
+<span class="line-numbers"><a href="#n27" name="n27">27</a></span>
+<span class="line-numbers"><a href="#n28" name="n28">28</a></span>check :
+<span class="line-numbers"><a href="#n29" name="n29">29</a></span>        ./mainfile
+<span class="line-numbers"><strong><a href="#n30" name="n30">30</a></strong></span>        ./separatefile
+<span class="line-numbers"><a href="#n31" name="n31">31</a></span>        ./inlined
+</pre></div>
+</div>
+</div>
+
+<p>As per what has been said in the lecture `Optimization’ we expect variant 2 to be slower, because the function cannot be automatically inlined (as it lies in a separate library), and therefore we have to push arguments to the stack, change the instruction block, and return variables – all of which take extra time.</p>
+
+<p>A bit of bench’ing confirms this.</p>
+
+<div class="language-bash highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"> <a href="#n1" name="n1">1</a></span>[tobias@gantenbein inlining]$ make check
+<span class="line-numbers"> <a href="#n2" name="n2">2</a></span>./mainfile
+<span class="line-numbers"> <a href="#n3" name="n3">3</a></span>This is mainfile. I multiply complex numbers together.
+<span class="line-numbers"> <a href="#n4" name="n4">4</a></span>Took 0.00117710 secs to generate.
+<span class="line-numbers"> <a href="#n5" name="n5">5</a></span>Took 0.00063310 secs to compute.
+<span class="line-numbers"> <a href="#n6" name="n6">6</a></span>./separatefile
+<span class="line-numbers"> <a href="#n7" name="n7">7</a></span>This is separatefile. I multiply complex numbers together.
+<span class="line-numbers"> <a href="#n8" name="n8">8</a></span>Took 0.00104510 secs to generate.
+<span class="line-numbers"> <a href="#n9" name="n9">9</a></span>Took 0.00069810 secs to compute.
+<span class="line-numbers"><strong><a href="#n10" name="n10">10</a></strong></span>./inlined
+<span class="line-numbers"><a href="#n11" name="n11">11</a></span>This is inlined. I multiply complex numbers together.
+<span class="line-numbers"><a href="#n12" name="n12">12</a></span>Took 0.00098810 secs to generate.
+<span class="line-numbers"><a href="#n13" name="n13">13</a></span>Took 0.00058210 secs to compute.
+</pre></div>
+</div>
+</div>
+
+<p>Let’s now take a little look with <code>nm</code>.</p>
+
+<div class="language-bash highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"> <a href="#n1" name="n1">1</a></span>[tobias@gantenbein inlining]$ nm mainfile
+<span class="line-numbers"> <a href="#n2" name="n2">2</a></span>0000000000601044 B __bss_start
+<span class="line-numbers"> <a href="#n3" name="n3">3</a></span>0000000000601044 b completed.7343
+<span class="line-numbers"> <a href="#n4" name="n4">4</a></span>0000000000601040 D __data_start
+<span class="line-numbers"> <a href="#n5" name="n5">5</a></span>0000000000601040 W data_start
+<span class="line-numbers"> <a href="#n6" name="n6">6</a></span>0000000000400760 t deregister_tm_clones
+<span class="line-numbers"> <a href="#n7" name="n7">7</a></span>0000000000400750 T _dl_relocate_static_pie
+<span class="line-numbers"> <a href="#n8" name="n8">8</a></span>00000000004007d0 t __do_global_dtors_aux
+<span class="line-numbers"> <a href="#n9" name="n9">9</a></span>0000000000600e18 t __do_global_dtors_aux_fini_array_entry
+<span class="line-numbers"><strong><a href="#n10" name="n10">10</a></strong></span>00000000004008c8 R __dso_handle
+<span class="line-numbers"><a href="#n11" name="n11">11</a></span>0000000000600e20 d _DYNAMIC
+<span class="line-numbers"><a href="#n12" name="n12">12</a></span>0000000000601044 D _edata
+<span class="line-numbers"><a href="#n13" name="n13">13</a></span>0000000000601048 B _end
+<span class="line-numbers"><a href="#n14" name="n14">14</a></span>                 U exit@@GLIBC_2.2.5
+<span class="line-numbers"><a href="#n15" name="n15">15</a></span>00000000004008b4 T _fini
+<span class="line-numbers"><a href="#n16" name="n16">16</a></span>0000000000400800 t frame_dummy
+<span class="line-numbers"><a href="#n17" name="n17">17</a></span>0000000000600e10 t __frame_dummy_init_array_entry
+<span class="line-numbers"><a href="#n18" name="n18">18</a></span>0000000000400ad4 r __FRAME_END__
+<span class="line-numbers"><a href="#n19" name="n19">19</a></span>0000000000601000 d _GLOBAL_OFFSET_TABLE_
+<span class="line-numbers"><strong><a href="#n20" name="n20">20</a></strong></span>                 w __gmon_start__
+<span class="line-numbers"><a href="#n21" name="n21">21</a></span>0000000000400958 r __GNU_EH_FRAME_HDR
+<span class="line-numbers"><a href="#n22" name="n22">22</a></span>00000000004004c8 T _init
+<span class="line-numbers"><a href="#n23" name="n23">23</a></span>0000000000600e18 t __init_array_end
+<span class="line-numbers"><a href="#n24" name="n24">24</a></span>0000000000600e10 t __init_array_start
+<span class="line-numbers"><a href="#n25" name="n25">25</a></span>00000000004008c0 R _IO_stdin_used
+<span class="line-numbers"><a href="#n26" name="n26">26</a></span>00000000004008b0 T __libc_csu_fini
+<span class="line-numbers"><a href="#n27" name="n27">27</a></span>0000000000400850 T __libc_csu_init
+<span class="line-numbers"><a href="#n28" name="n28">28</a></span>                 U __libc_start_main@@GLIBC_2.2.5
+<span class="line-numbers"><a href="#n29" name="n29">29</a></span>0000000000400540 T main
+<span class="line-numbers"><strong><a href="#n30" name="n30">30</a></strong></span>                 U malloc@@GLIBC_2.2.5
+<span class="line-numbers"><a href="#n31" name="n31">31</a></span>0000000000400810 T mul_cpx_mainfile
+<span class="line-numbers"><a href="#n32" name="n32">32</a></span>                 U printf@@GLIBC_2.2.5
+<span class="line-numbers"><a href="#n33" name="n33">33</a></span>                 U puts@@GLIBC_2.2.5
+<span class="line-numbers"><a href="#n34" name="n34">34</a></span>0000000000400790 t register_tm_clones
+<span class="line-numbers"><a href="#n35" name="n35">35</a></span>0000000000400720 T _start
+<span class="line-numbers"><a href="#n36" name="n36">36</a></span>                 U timespec_get@@GLIBC_2.16
+<span class="line-numbers"><a href="#n37" name="n37">37</a></span>0000000000601048 D __TMC_END__
+<span class="line-numbers"><a href="#n38" name="n38">38</a></span>[tobias@gantenbein inlining]$ nm separatefile
+<span class="line-numbers"><a href="#n39" name="n39">39</a></span>0000000000601044 B __bss_start
+<span class="line-numbers"><strong><a href="#n40" name="n40">40</a></strong></span>0000000000601044 b completed.7343
+<span class="line-numbers"><a href="#n41" name="n41">41</a></span>0000000000601040 D __data_start
+<span class="line-numbers"><a href="#n42" name="n42">42</a></span>0000000000601040 W data_start
+<span class="line-numbers"><a href="#n43" name="n43">43</a></span>0000000000400740 t deregister_tm_clones
+<span class="line-numbers"><a href="#n44" name="n44">44</a></span>0000000000400730 T _dl_relocate_static_pie
+<span class="line-numbers"><a href="#n45" name="n45">45</a></span>00000000004007b0 t __do_global_dtors_aux
+<span class="line-numbers"><a href="#n46" name="n46">46</a></span>0000000000600e18 t __do_global_dtors_aux_fini_array_entry
+<span class="line-numbers"><a href="#n47" name="n47">47</a></span>00000000004008a8 R __dso_handle
+<span class="line-numbers"><a href="#n48" name="n48">48</a></span>0000000000600e20 d _DYNAMIC
+<span class="line-numbers"><a href="#n49" name="n49">49</a></span>0000000000601044 D _edata
+<span class="line-numbers"><strong><a href="#n50" name="n50">50</a></strong></span>0000000000601048 B _end
+<span class="line-numbers"><a href="#n51" name="n51">51</a></span>                 U exit@@GLIBC_2.2.5
+<span class="line-numbers"><a href="#n52" name="n52">52</a></span>0000000000400894 T _fini
+<span class="line-numbers"><a href="#n53" name="n53">53</a></span>00000000004007e0 t frame_dummy
+<span class="line-numbers"><a href="#n54" name="n54">54</a></span>0000000000600e10 t __frame_dummy_init_array_entry
+<span class="line-numbers"><a href="#n55" name="n55">55</a></span>0000000000400ac4 r __FRAME_END__
+<span class="line-numbers"><a href="#n56" name="n56">56</a></span>0000000000601000 d _GLOBAL_OFFSET_TABLE_
+<span class="line-numbers"><a href="#n57" name="n57">57</a></span>                 w __gmon_start__
+<span class="line-numbers"><a href="#n58" name="n58">58</a></span>0000000000400940 r __GNU_EH_FRAME_HDR
+<span class="line-numbers"><a href="#n59" name="n59">59</a></span>00000000004004c8 T _init
+<span class="line-numbers"><strong><a href="#n60" name="n60">60</a></strong></span>0000000000600e18 t __init_array_end
+<span class="line-numbers"><a href="#n61" name="n61">61</a></span>0000000000600e10 t __init_array_start
+<span class="line-numbers"><a href="#n62" name="n62">62</a></span>00000000004008a0 R _IO_stdin_used
+<span class="line-numbers"><a href="#n63" name="n63">63</a></span>0000000000400890 T __libc_csu_fini
+<span class="line-numbers"><a href="#n64" name="n64">64</a></span>0000000000400830 T __libc_csu_init
+<span class="line-numbers"><a href="#n65" name="n65">65</a></span>                 U __libc_start_main@@GLIBC_2.2.5
+<span class="line-numbers"><a href="#n66" name="n66">66</a></span>0000000000400540 T main
+<span class="line-numbers"><a href="#n67" name="n67">67</a></span>                 U malloc@@GLIBC_2.2.5
+<span class="line-numbers"><a href="#n68" name="n68">68</a></span>00000000004007f0 T mul_cpx_separatefile
+<span class="line-numbers"><a href="#n69" name="n69">69</a></span>                 U printf@@GLIBC_2.2.5
+<span class="line-numbers"><strong><a href="#n70" name="n70">70</a></strong></span>                 U puts@@GLIBC_2.2.5
+<span class="line-numbers"><a href="#n71" name="n71">71</a></span>0000000000400770 t register_tm_clones
+<span class="line-numbers"><a href="#n72" name="n72">72</a></span>0000000000400700 T _start
+<span class="line-numbers"><a href="#n73" name="n73">73</a></span>                 U timespec_get@@GLIBC_2.16
+<span class="line-numbers"><a href="#n74" name="n74">74</a></span>0000000000601048 D __TMC_END__
+</pre></div>
+</div>
+</div>
+
+<p>What we see here is a so-called “symbol table”, see e. g. <a href="https://en.wikipedia.org/wiki/Symbol_table">here</a>. It associates symbols in the source code (e. g. functions or variables, in general defined by the grammar of language) with addresses. As for the flags in the middle, consult the <code>man</code>-pages of <code>nm</code>.</p>
+
+<p>We do indeed find the symbols we’re looking for.</p>
+
+<pre><code>0000000000400810 T mul_cpx_mainfile
+</code></pre>
+
+<p>and</p>
+
+<pre><code>00000000004007f0 T mul_cpx_separatefile
+</code></pre>
+
+<p>where the flag <code>T</code> means that both of these symbols are resolved. This is because we’re looking at final, already linked, executable. Had we generated and looked at the corresponding <code>.o</code>-file of <code>separatefile</code>, we would see the flag <code>U</code> – meaning undefined – instead.</p>
+
 <h2 id="locality">Locality</h2>
+
+<p>In this exercise, we investigate the effects of locality in memory access by implementing row sums and column sums of a matrix naïvely. We then implement the slower of the two in a more efficient way.</p>
+
+<p>But let’s let the code speak for itself.</p>
+
+<div class="language-C highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"> <a href="#n1" name="n1">1</a></span><span style="color:#579">#include</span> <span style="color:#B44;font-weight:bold">&lt;stdio.h&gt;</span>
+<span class="line-numbers"> <a href="#n2" name="n2">2</a></span><span style="color:#579">#include</span> <span style="color:#B44;font-weight:bold">&lt;stdlib.h&gt;</span>
+<span class="line-numbers"> <a href="#n3" name="n3">3</a></span><span style="color:#579">#include</span> <span style="color:#B44;font-weight:bold">&lt;time.h&gt;</span>
+<span class="line-numbers"> <a href="#n4" name="n4">4</a></span>
+<span class="line-numbers"> <a href="#n5" name="n5">5</a></span><span style="color:#579">#define</span> SIZE <span style="color:#00D">1000</span>
+<span class="line-numbers"> <a href="#n6" name="n6">6</a></span>
+<span class="line-numbers"> <a href="#n7" name="n7">7</a></span><span style="color:#088;font-weight:bold">void</span> row_sums(<span style="color:#0a8;font-weight:bold">double</span> * sums, <span style="color:#088;font-weight:bold">const</span> <span style="color:#0a8;font-weight:bold">double</span> ** matrix, size_t nrs, size_t ncs){
+<span class="line-numbers"> <a href="#n8" name="n8">8</a></span>  <span style="color:#080;font-weight:bold">for</span> ( size_t ix=<span style="color:#00D">0</span>; ix &lt; nrs; ++ix ) {
+<span class="line-numbers"> <a href="#n9" name="n9">9</a></span>    <span style="color:#0a8;font-weight:bold">double</span> sum = <span style="color:#00D">0</span>;
+<span class="line-numbers"><strong><a href="#n10" name="n10">10</a></strong></span>    <span style="color:#080;font-weight:bold">for</span> ( size_t jx=<span style="color:#00D">0</span>; jx &lt; ncs; ++jx )
+<span class="line-numbers"><a href="#n11" name="n11">11</a></span>      sum += matrix[ix][jx];
+<span class="line-numbers"><a href="#n12" name="n12">12</a></span>    sums[ix] = sum;
+<span class="line-numbers"><a href="#n13" name="n13">13</a></span>  }
+<span class="line-numbers"><a href="#n14" name="n14">14</a></span>}
+<span class="line-numbers"><a href="#n15" name="n15">15</a></span>
+<span class="line-numbers"><a href="#n16" name="n16">16</a></span><span style="color:#088;font-weight:bold">void</span> col_sums(<span style="color:#0a8;font-weight:bold">double</span> * sums, <span style="color:#088;font-weight:bold">const</span> <span style="color:#0a8;font-weight:bold">double</span> ** matrix, size_t nrs, size_t ncs){
+<span class="line-numbers"><a href="#n17" name="n17">17</a></span>  <span style="color:#080;font-weight:bold">for</span> ( size_t jx=<span style="color:#00D">0</span>; jx &lt; ncs; ++jx ) {
+<span class="line-numbers"><a href="#n18" name="n18">18</a></span>    <span style="color:#0a8;font-weight:bold">double</span> sum = <span style="color:#00D">0</span>;
+<span class="line-numbers"><a href="#n19" name="n19">19</a></span>    <span style="color:#080;font-weight:bold">for</span> ( size_t ix=<span style="color:#00D">0</span>; ix &lt; nrs; ++ix )
+<span class="line-numbers"><strong><a href="#n20" name="n20">20</a></strong></span>      sum += matrix[ix][jx];
+<span class="line-numbers"><a href="#n21" name="n21">21</a></span>    sums[jx] = sum;
+<span class="line-numbers"><a href="#n22" name="n22">22</a></span>  }
+<span class="line-numbers"><a href="#n23" name="n23">23</a></span>}
+<span class="line-numbers"><a href="#n24" name="n24">24</a></span>
+<span class="line-numbers"><a href="#n25" name="n25">25</a></span><span style="color:#777">//This should be faster as it accesses the memory linearly</span>
+<span class="line-numbers"><a href="#n26" name="n26">26</a></span><span style="color:#777">//We do however look up csums quite often, so maybe not</span>
+<span class="line-numbers"><a href="#n27" name="n27">27</a></span><span style="color:#088;font-weight:bold">void</span> rowcol_sums(<span style="color:#0a8;font-weight:bold">double</span> *rsums, <span style="color:#0a8;font-weight:bold">double</span> *csums, <span style="color:#088;font-weight:bold">const</span> <span style="color:#0a8;font-weight:bold">double</span> ** matrix, size_t nrs, size_t ncs){
+<span class="line-numbers"><a href="#n28" name="n28">28</a></span>        <span style="color:#0a8;font-weight:bold">double</span> current;
+<span class="line-numbers"><a href="#n29" name="n29">29</a></span>        <span style="color:#0a8;font-weight:bold">double</span> sum = <span style="color:#00D">0</span>;
+<span class="line-numbers"><strong><a href="#n30" name="n30">30</a></strong></span>        <span style="color:#080;font-weight:bold">for</span> (size_t ix=<span style="color:#00D">0</span>; ix&lt;nrs; ++ix){
+<span class="line-numbers"><a href="#n31" name="n31">31</a></span>                <span style="color:#080;font-weight:bold">for</span>(size_t jx=<span style="color:#00D">0</span>; jx&lt;ncs; ++jx){
+<span class="line-numbers"><a href="#n32" name="n32">32</a></span>                        current = matrix[ix][jx];
+<span class="line-numbers"><a href="#n33" name="n33">33</a></span>                        sum += current;
+<span class="line-numbers"><a href="#n34" name="n34">34</a></span>                        csums[jx] += current;
+<span class="line-numbers"><a href="#n35" name="n35">35</a></span>                }
+<span class="line-numbers"><a href="#n36" name="n36">36</a></span>                rsums[ix]=sum;
+<span class="line-numbers"><a href="#n37" name="n37">37</a></span>                sum=<span style="color:#00D">0</span>;
+<span class="line-numbers"><a href="#n38" name="n38">38</a></span>        }
+<span class="line-numbers"><a href="#n39" name="n39">39</a></span>}
+<span class="line-numbers"><strong><a href="#n40" name="n40">40</a></strong></span>
+<span class="line-numbers"><a href="#n41" name="n41">41</a></span><span style="color:#088;font-weight:bold">void</span> main(){
+<span class="line-numbers"><a href="#n42" name="n42">42</a></span>        <span style="color:#080;font-weight:bold">struct</span> timespec start,stop;
+<span class="line-numbers"><a href="#n43" name="n43">43</a></span>        <span style="color:#0a8;font-weight:bold">long</span> <span style="color:#0a8;font-weight:bold">double</span> elapsed;
+<span class="line-numbers"><a href="#n44" name="n44">44</a></span>        <span style="color:#777">//fmatrix = flat matrix</span>
+<span class="line-numbers"><a href="#n45" name="n45">45</a></span>        <span style="color:#0a8;font-weight:bold">double</span> * fmat = (<span style="color:#0a8;font-weight:bold">double</span> *)malloc(<span style="color:#080;font-weight:bold">sizeof</span>(<span style="color:#0a8;font-weight:bold">double</span>)*SIZE*SIZE);
+<span class="line-numbers"><a href="#n46" name="n46">46</a></span>        <span style="color:#088;font-weight:bold">const</span> <span style="color:#0a8;font-weight:bold">double</span> ** mat = (<span style="color:#088;font-weight:bold">const</span> <span style="color:#0a8;font-weight:bold">double</span> **)malloc(<span style="color:#080;font-weight:bold">sizeof</span>(<span style="color:#0a8;font-weight:bold">double</span>*)*SIZE);
+<span class="line-numbers"><a href="#n47" name="n47">47</a></span>        
+<span class="line-numbers"><a href="#n48" name="n48">48</a></span>        <span style="color:#777">//Row major order, i. e.</span>
+<span class="line-numbers"><a href="#n49" name="n49">49</a></span>        <span style="color:#777">//a11 a12 a13 a21 a22 a23 a31 a32 a33</span>
+<span class="line-numbers"><strong><a href="#n50" name="n50">50</a></strong></span>        <span style="color:#777">//for SIZE=3</span>
+<span class="line-numbers"><a href="#n51" name="n51">51</a></span>
+<span class="line-numbers"><a href="#n52" name="n52">52</a></span>        <span style="color:#080;font-weight:bold">for</span> (size_t i = <span style="color:#00D">0</span>, j=<span style="color:#00D">0</span>; i&lt;SIZE; ++i, j+=SIZE)
+<span class="line-numbers"><a href="#n53" name="n53">53</a></span>                mat[i] = fmat + j;
+<span class="line-numbers"><a href="#n54" name="n54">54</a></span>        <span style="color:#777">//Filling the matrix with ones, because why not?</span>
+<span class="line-numbers"><a href="#n55" name="n55">55</a></span>        <span style="color:#080;font-weight:bold">for</span> (size_t k = <span style="color:#00D">0</span>; k&lt;SIZE*SIZE; ++k)
+<span class="line-numbers"><a href="#n56" name="n56">56</a></span>                *(fmat+k)=<span style="color:#00D">1</span>;
+<span class="line-numbers"><a href="#n57" name="n57">57</a></span>
+<span class="line-numbers"><a href="#n58" name="n58">58</a></span>        <span style="color:#0a8;font-weight:bold">double</span> * sums = (<span style="color:#0a8;font-weight:bold">double</span> *)malloc(<span style="color:#080;font-weight:bold">sizeof</span>(<span style="color:#0a8;font-weight:bold">double</span>)*SIZE);
+<span class="line-numbers"><a href="#n59" name="n59">59</a></span>        <span style="color:#0a8;font-weight:bold">double</span> * sums2 = (<span style="color:#0a8;font-weight:bold">double</span> *)malloc(<span style="color:#080;font-weight:bold">sizeof</span>(<span style="color:#0a8;font-weight:bold">double</span>)*SIZE);
+<span class="line-numbers"><strong><a href="#n60" name="n60">60</a></strong></span>
+<span class="line-numbers"><a href="#n61" name="n61">61</a></span>        timespec_get(&amp;start,TIME_UTC);
+<span class="line-numbers"><a href="#n62" name="n62">62</a></span>        row_sums(sums, mat, SIZE, SIZE);
+<span class="line-numbers"><a href="#n63" name="n63">63</a></span>        timespec_get(&amp;stop,TIME_UTC);
+<span class="line-numbers"><a href="#n64" name="n64">64</a></span>        elapsed = (stop.tv_sec+<span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*stop.tv_nsec)-(start.tv_sec+<span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*start.tv_nsec);
+<span class="line-numbers"><a href="#n65" name="n65">65</a></span>        printf(<span style="background-color:hsla(0,100%,50%,0.05)"><span style="color:#710">&quot;</span><span style="color:#D20">%Lf10 secs for row sums.</span><span style="color:#b0b">\n</span><span style="color:#710">&quot;</span></span>,elapsed);
+<span class="line-numbers"><a href="#n66" name="n66">66</a></span>
+<span class="line-numbers"><a href="#n67" name="n67">67</a></span>        timespec_get(&amp;start,TIME_UTC);
+<span class="line-numbers"><a href="#n68" name="n68">68</a></span>        col_sums(sums, mat, SIZE, SIZE);
+<span class="line-numbers"><a href="#n69" name="n69">69</a></span>        timespec_get(&amp;stop,TIME_UTC);
+<span class="line-numbers"><strong><a href="#n70" name="n70">70</a></strong></span>        elapsed = (stop.tv_sec+<span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*stop.tv_nsec)-(start.tv_sec+<span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*start.tv_nsec);
+<span class="line-numbers"><a href="#n71" name="n71">71</a></span>        printf(<span style="background-color:hsla(0,100%,50%,0.05)"><span style="color:#710">&quot;</span><span style="color:#D20">%Lf10 secs for col sums.</span><span style="color:#b0b">\n</span><span style="color:#710">&quot;</span></span>,elapsed);
+<span class="line-numbers"><a href="#n72" name="n72">72</a></span>
+<span class="line-numbers"><a href="#n73" name="n73">73</a></span>        timespec_get(&amp;start,TIME_UTC);
+<span class="line-numbers"><a href="#n74" name="n74">74</a></span>        rowcol_sums(sums, sums2, mat, SIZE, SIZE);
+<span class="line-numbers"><a href="#n75" name="n75">75</a></span>        timespec_get(&amp;stop,TIME_UTC);
+<span class="line-numbers"><a href="#n76" name="n76">76</a></span>        elapsed = (stop.tv_sec+<span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*stop.tv_nsec)-(start.tv_sec+<span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*start.tv_nsec);
+<span class="line-numbers"><a href="#n77" name="n77">77</a></span>        printf(<span style="background-color:hsla(0,100%,50%,0.05)"><span style="color:#710">&quot;</span><span style="color:#D20">%Lf10 secs for row col sums.</span><span style="color:#b0b">\n</span><span style="color:#710">&quot;</span></span>,elapsed);
+<span class="line-numbers"><a href="#n78" name="n78">78</a></span>
+<span class="line-numbers"><a href="#n79" name="n79">79</a></span>        exit(<span style="color:#00D">0</span>);
+<span class="line-numbers"><strong><a href="#n80" name="n80">80</a></strong></span>}
+</pre></div>
+</div>
+</div>
+
+<p>One will notice that <code>col_sums</code> is slower than <code>row_sums</code>. The key is then to notice that <code>row_sums</code> iterates through every entry in the matrix, so that if we only keep track of the column sums in an array, we should be able to simultanteously compute row sums and columns sums using approximately as much time as when just computing row sums.</p>
+
+<p>The function <code>rowcol_sums</code> is a realization of this idea. So, does it work? Yes! Here’s the <code>makefile</code> and a few benchmarks.</p>
+
+<div class="language-make highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"> <a href="#n1" name="n1">1</a></span>CFLAGS=-std=c11 -march=native -pg
+<span class="line-numbers"> <a href="#n2" name="n2">2</a></span>TARGETS=locality locality_fast
+<span class="line-numbers"> <a href="#n3" name="n3">3</a></span>
+<span class="line-numbers"> <a href="#n4" name="n4">4</a></span>.PHONY : all check
+<span class="line-numbers"> <a href="#n5" name="n5">5</a></span>
+<span class="line-numbers"> <a href="#n6" name="n6">6</a></span>all : $(TARGETS)
+<span class="line-numbers"> <a href="#n7" name="n7">7</a></span>
+<span class="line-numbers"> <a href="#n8" name="n8">8</a></span>locality : locality.c
+<span class="line-numbers"> <a href="#n9" name="n9">9</a></span>        gcc $(CFLAGS) -O0 -o locality0 locality.c
+<span class="line-numbers"><strong><a href="#n10" name="n10">10</a></strong></span>        gcc $(CFLAGS) -O2 -o locality2 locality.c
+<span class="line-numbers"><a href="#n11" name="n11">11</a></span>
+<span class="line-numbers"><a href="#n12" name="n12">12</a></span>locality_fast : locality_fast.c
+<span class="line-numbers"><a href="#n13" name="n13">13</a></span>        gcc $(CFLAGS) -O0 -o locality_fast0 locality_fast.c
+<span class="line-numbers"><a href="#n14" name="n14">14</a></span>        gcc $(CFLAGS) -O0 -ftest-coverage -fprofile-arcs -o locality_fast0_cov locality_fast.c
+<span class="line-numbers"><a href="#n15" name="n15">15</a></span>        gcc $(CFLAGS) -O2 -o locality_fast2 locality_fast.c
+<span class="line-numbers"><a href="#n16" name="n16">16</a></span>
+<span class="line-numbers"><a href="#n17" name="n17">17</a></span>check :
+<span class="line-numbers"><a href="#n18" name="n18">18</a></span>        echo &quot;Slow, -O0&quot;
+<span class="line-numbers"><a href="#n19" name="n19">19</a></span>        ./locality0
+<span class="line-numbers"><strong><a href="#n20" name="n20">20</a></strong></span>        echo &quot;Slow, -O2&quot;
+<span class="line-numbers"><a href="#n21" name="n21">21</a></span>        ./locality2
+<span class="line-numbers"><a href="#n22" name="n22">22</a></span>        echo &quot;Fast, -O0&quot;
+<span class="line-numbers"><a href="#n23" name="n23">23</a></span>        ./locality_fast0
+<span class="line-numbers"><a href="#n24" name="n24">24</a></span>        echo &quot;Fast, -O2&quot;
+<span class="line-numbers"><a href="#n25" name="n25">25</a></span>        ./locality_fast2
+</pre></div>
+</div>
+</div>
+<div class="language-bash highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"> <a href="#n1" name="n1">1</a></span>[tobias@gantenbein locality]$ make check
+<span class="line-numbers"> <a href="#n2" name="n2">2</a></span>echo &quot;Slow, -O0&quot;
+<span class="line-numbers"> <a href="#n3" name="n3">3</a></span>Slow, -O0
+<span class="line-numbers"> <a href="#n4" name="n4">4</a></span>./locality0
+<span class="line-numbers"> <a href="#n5" name="n5">5</a></span>0.00366510 secs for row sums.
+<span class="line-numbers"> <a href="#n6" name="n6">6</a></span>0.00433310 secs for col sums.
+<span class="line-numbers"> <a href="#n7" name="n7">7</a></span>echo &quot;Slow, -O2&quot;
+<span class="line-numbers"> <a href="#n8" name="n8">8</a></span>Slow, -O2
+<span class="line-numbers"> <a href="#n9" name="n9">9</a></span>./locality2
+<span class="line-numbers"><strong><a href="#n10" name="n10">10</a></strong></span>0.00111310 secs for row sums.
+<span class="line-numbers"><a href="#n11" name="n11">11</a></span>0.00142610 secs for col sums.
+<span class="line-numbers"><a href="#n12" name="n12">12</a></span>echo &quot;Fast, -O0&quot;
+<span class="line-numbers"><a href="#n13" name="n13">13</a></span>Fast, -O0
+<span class="line-numbers"><a href="#n14" name="n14">14</a></span>./locality_fast0
+<span class="line-numbers"><a href="#n15" name="n15">15</a></span>0.00259910 secs for row sums.
+<span class="line-numbers"><a href="#n16" name="n16">16</a></span>0.00333110 secs for col sums.
+<span class="line-numbers"><a href="#n17" name="n17">17</a></span>0.00320110 secs for row col sums.
+<span class="line-numbers"><a href="#n18" name="n18">18</a></span>echo &quot;Fast, -O2&quot;
+<span class="line-numbers"><a href="#n19" name="n19">19</a></span>Fast, -O2
+<span class="line-numbers"><strong><a href="#n20" name="n20">20</a></strong></span>./locality_fast2
+<span class="line-numbers"><a href="#n21" name="n21">21</a></span>0.00110710 secs for row sums.
+<span class="line-numbers"><a href="#n22" name="n22">22</a></span>0.00182510 secs for col sums.
+<span class="line-numbers"><a href="#n23" name="n23">23</a></span>0.00113810 secs for row col sums.
+</pre></div>
+</div>
+</div>
+
+<p>The reason for the speed is of course the way in which we access the memory. See the below pictures for a nice visual explanation.</p>
+
+<p><img src="./rowsums.png" alt="alt-text" title="Visualization" /></p>
+
+<p><img src="./colsums.png" alt="alt-text" title="Visualization" /></p>
+
+<p>Clearly, the above is just a toy example. In practice, when <code>SIZE</code> is just <code>3</code>, the whole array can be loaded into cache. However, when <code>SIZE</code> is large, such as <code>1000</code> and more, this is not the case. And that also explains why <code>col_sums</code> is slower than <code>row_sums</code> – we cannot keep as much in the cache as we can for <code>row_sums</code>.</p>
 
 <h2 id="indirect-addressing">Indirect addressing</h2>
 
