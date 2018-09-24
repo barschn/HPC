@@ -347,6 +347,50 @@ Breakpoint 1, main (argc=2, argv=0x7fffffffdf68) at bigsum.c:15
 
 <h2 id="inlining">Inlining</h2>
 
+<p>In this part we investigate the effects of automatic inlining. We do this by implementing a function <code>mul_cpx</code> that computes the sum of two complex numbers, in three different ways.</p>
+
+<ol>
+  <li>By putting <code>mul_cpx</code> in the same file as <code>main</code>, but not inlined. Call this variant 1.</li>
+  <li>By putting <code>mul_cpx</code> in a different <code>.c</code> file from <code>main</code>, and then importing it. Call this variant 2.</li>
+  <li>By inlining <code>mul_cpx</code> manually wherever it is called. Call this variant 3.</li>
+</ol>
+
+<p>To measure we execute the following code (or a minor variation thereof).</p>
+
+<div class="language-C highlighter-coderay"><div class="CodeRay">
+  <div class="code"><pre><span class="line-numbers"> <a href="#n1" name="n1">1</a></span><span style="color:#080;font-weight:bold">struct</span> timespec start,stop;
+<span class="line-numbers"> <a href="#n2" name="n2">2</a></span><span style="color:#0a8;font-weight:bold">double</span> * ares = (<span style="color:#0a8;font-weight:bold">double</span> *) malloc(<span style="color:#080;font-weight:bold">sizeof</span>(<span style="color:#0a8;font-weight:bold">double</span>)*SIZE);
+<span class="line-numbers"> <a href="#n3" name="n3">3</a></span><span style="color:#0a8;font-weight:bold">double</span> * aims = (<span style="color:#0a8;font-weight:bold">double</span> *) malloc(<span style="color:#080;font-weight:bold">sizeof</span>(<span style="color:#0a8;font-weight:bold">double</span>)*SIZE);
+<span class="line-numbers"> <a href="#n4" name="n4">4</a></span><span style="color:#0a8;font-weight:bold">double</span> * bres = (<span style="color:#0a8;font-weight:bold">double</span> *) malloc(<span style="color:#080;font-weight:bold">sizeof</span>(<span style="color:#0a8;font-weight:bold">double</span>)*SIZE);
+<span class="line-numbers"> <a href="#n5" name="n5">5</a></span><span style="color:#0a8;font-weight:bold">double</span> * bims = (<span style="color:#0a8;font-weight:bold">double</span> *) malloc(<span style="color:#080;font-weight:bold">sizeof</span>(<span style="color:#0a8;font-weight:bold">double</span>)*SIZE);
+<span class="line-numbers"> <a href="#n6" name="n6">6</a></span><span style="color:#0a8;font-weight:bold">double</span> * cres = (<span style="color:#0a8;font-weight:bold">double</span> *) malloc(<span style="color:#080;font-weight:bold">sizeof</span>(<span style="color:#0a8;font-weight:bold">double</span>)*SIZE);
+<span class="line-numbers"> <a href="#n7" name="n7">7</a></span><span style="color:#0a8;font-weight:bold">double</span> * cims = (<span style="color:#0a8;font-weight:bold">double</span> *) malloc(<span style="color:#080;font-weight:bold">sizeof</span>(<span style="color:#0a8;font-weight:bold">double</span>)*SIZE);
+<span class="line-numbers"> <a href="#n8" name="n8">8</a></span>
+<span class="line-numbers"> <a href="#n9" name="n9">9</a></span><span style="color:#0a8;font-weight:bold">long</span> <span style="color:#0a8;font-weight:bold">double</span> elapsed;
+<span class="line-numbers"><strong><a href="#n10" name="n10">10</a></strong></span>
+<span class="line-numbers"><a href="#n11" name="n11">11</a></span>timespec_get(&amp;start, TIME_UTC);
+<span class="line-numbers"><a href="#n12" name="n12">12</a></span><span style="color:#777">//Generating entries for b and c</span>
+<span class="line-numbers"><a href="#n13" name="n13">13</a></span><span style="color:#080;font-weight:bold">for</span> (size_t i=<span style="color:#00D">0</span>; i&lt;SIZE; ++i){
+<span class="line-numbers"><a href="#n14" name="n14">14</a></span>        *(bres + i) = <span style="color:#00D">1</span>;
+<span class="line-numbers"><a href="#n15" name="n15">15</a></span>        *(bims + i) = <span style="color:#00D">1</span>;
+<span class="line-numbers"><a href="#n16" name="n16">16</a></span>        *(cres + i) = <span style="color:#00D">1</span>;
+<span class="line-numbers"><a href="#n17" name="n17">17</a></span>        *(cims + i) = <span style="color:#00D">1</span>;
+<span class="line-numbers"><a href="#n18" name="n18">18</a></span>}
+<span class="line-numbers"><a href="#n19" name="n19">19</a></span>timespec_get(&amp;stop, TIME_UTC);
+<span class="line-numbers"><strong><a href="#n20" name="n20">20</a></strong></span>elapsed=(stop.tv_sec+<span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*stop.tv_nsec)-(start.tv_sec+<span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*start.tv_nsec);
+<span class="line-numbers"><a href="#n21" name="n21">21</a></span>printf(<span style="background-color:hsla(0,100%,50%,0.05)"><span style="color:#710">&quot;</span><span style="color:#D20">Took %Lf10 secs to generate.</span><span style="color:#b0b">\n</span><span style="color:#710">&quot;</span></span>,elapsed);
+<span class="line-numbers"><a href="#n22" name="n22">22</a></span>timespec_get(&amp;start, TIME_UTC);
+<span class="line-numbers"><a href="#n23" name="n23">23</a></span><span style="color:#080;font-weight:bold">for</span> (size_t i=<span style="color:#00D">0</span>; i&lt;SIZE; ++i)
+<span class="line-numbers"><a href="#n24" name="n24">24</a></span>        mul_cpx_TYPE(ares+i, aims+i, bres+i, bims+i, cres+i, cims+i); <span style="color:#777">//TYPE is pseudo</span>
+<span class="line-numbers"><a href="#n25" name="n25">25</a></span>timespec_get(&amp;stop, TIME_UTC);
+<span class="line-numbers"><a href="#n26" name="n26">26</a></span>elapsed=(stop.tv_sec+<span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*stop.tv_nsec)-(start.tv_sec+<span style="color:#60E">1</span><span style="color:#60E">.0e-9</span>*start.tv_nsec);
+<span class="line-numbers"><a href="#n27" name="n27">27</a></span>printf(<span style="background-color:hsla(0,100%,50%,0.05)"><span style="color:#710">&quot;</span><span style="color:#D20">Took %Lf10 secs to compute.</span><span style="color:#b0b">\n</span><span style="color:#710">&quot;</span></span>,elapsed);
+</pre></div>
+</div>
+</div>
+
+<p>where <code>TYPE</code> can be either <code>mainfile</code> or <code>separatefile</code>, depending on whether we measure variant 1, 2, or 3.</p>
+
 <h2 id="locality">Locality</h2>
 
 <h2 id="indirect-addressing">Indirect addressing</h2>
