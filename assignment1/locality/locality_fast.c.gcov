@@ -10,7 +10,7 @@
         -:    5:#define SIZE 1000
         -:    6:
         -:    7://Was const double **, but that didn't work
-        1:    8:void row_sums(double * sums, double ** matrix, size_t nrs, size_t ncs){
+        1:    8:void row_sums(double * sums, const double ** matrix, size_t nrs, size_t ncs){
      1001:    9:  for ( size_t ix=0; ix < nrs; ++ix ) {
      1000:   10:    double sum = 0;
   1001000:   11:    for ( size_t jx=0; jx < ncs; ++jx )
@@ -20,7 +20,7 @@
         1:   15:}
         -:   16:
         -:   17://Was const double **, but that didn't work
-        1:   18:void col_sums(double * sums, double ** matrix, size_t nrs, size_t ncs){
+        1:   18:void col_sums(double * sums, const double ** matrix, size_t nrs, size_t ncs){
      1001:   19:  for ( size_t jx=0; jx < ncs; ++jx ) {
      1000:   20:    double sum = 0;
   1001000:   21:    for ( size_t ix=0; ix < nrs; ++ix )
@@ -31,7 +31,7 @@
         -:   26:
         -:   27://This should be faster as it accesses the memory linearly
         -:   28://We do however look up csums quite often, so maybe not
-        1:   29:void rowcol_sums(double *rsums, double *csums, double ** matrix, size_t nrs, size_t ncs){
+        1:   29:void rowcol_sums(double *rsums, double *csums, const double ** matrix, size_t nrs, size_t ncs){
         -:   30:	double current;
         1:   31:	double sum = 0;
      1001:   32:	for (size_t ix=0; ix<nrs; ++ix){
@@ -53,18 +53,18 @@
         -:   48:	//Was
         -:   49:	//const double ** mat = (const double **)malloc(sizeof(double*)*SIZE);
         -:   50:	//But then I couldn't change the values
-        1:   51:	double ** mat = (double **)malloc(sizeof(double*)*SIZE);
-        -:   52:		
-        -:   53:	//Row major order, i. e.
-        -:   54:	//a11 a12 a13 a21 a22 a23 a31 a32 a33
-        -:   55:	//for SIZE=3
-        -:   56:	
-     1001:   57:	for (size_t i = 0, j=0; i<SIZE; ++i, j+=SIZE)
-     1000:   58:		mat[i] = fmat + j;
-        -:   59:	//Filling the matrix with ones, because why not?
-     1001:   60:	for (size_t i = 0; i<SIZE; ++i)
-  1001000:   61:		for (size_t j = 0; j<SIZE; ++j)
-  1000000:   62:			mat[i][j]=1;
+        1:   51:	const double ** mat = (const double **)malloc(sizeof(double*)*SIZE); //Kan inte ändra härifrån det som står på adressen. Så mat[i][j]=1 är ogiltigt. Men får ändra på pointern mat[i].
+        -:   52:	//Är det samma för const double *** o. s. v. Alltså att mat[i], mat[j] kan ändras, men inte mat[i][j][k]?
+        -:   53:			
+        -:   54:	//Row major order, i. e.
+        -:   55:	//a11 a12 a13 a21 a22 a23 a31 a32 a33
+        -:   56:	//for SIZE=3
+        -:   57:	
+     1001:   58:	for (size_t i = 0, j=0; i<SIZE; ++i, j+=SIZE)
+     1000:   59:		mat[i] = fmat + j;
+        -:   60:	//Filling the matrix with ones, because why not?
+  1000001:   61:	for (size_t k = 0; k<SIZE*SIZE; ++k)
+  1000000:   62:		*(fmat+k)=1;
         -:   63:	
         1:   64:	double * sums = (double *)malloc(sizeof(double)*SIZE);
         1:   65:	double * sums2 = (double *)malloc(sizeof(double)*SIZE);

@@ -4,7 +4,6 @@
 
 #define SIZE 1000
 
-//Was const double **, but that didn't work
 void row_sums(double * sums, const double ** matrix, size_t nrs, size_t ncs){
   for ( size_t ix=0; ix < nrs; ++ix ) {
     double sum = 0;
@@ -14,7 +13,6 @@ void row_sums(double * sums, const double ** matrix, size_t nrs, size_t ncs){
   }
 }
 
-//Was const double **, but that didn't work
 void col_sums(double * sums, const double ** matrix, size_t nrs, size_t ncs){
   for ( size_t jx=0; jx < ncs; ++jx ) {
     double sum = 0;
@@ -44,10 +42,7 @@ void main(){
 	struct timespec start,stop;
 	long double elapsed;
 	//fmatrix = flat matrix
-	double * fmat = (double *)malloc(sizeof(double)*SIZE*SIZE);
-	//Was
-	//const double ** mat = (const double **)malloc(sizeof(double*)*SIZE);
-	//But then I couldn't change the values
+	double * fmat = (double *)malloc(sizeof(double)*SIZE*SIZE);	
 	const double ** mat = (const double **)malloc(sizeof(double*)*SIZE); //Kan inte ändra härifrån det som står på adressen. Så mat[i][j]=1 är ogiltigt. Men får ändra på pointern mat[i].
 	//Är det samma för const double *** o. s. v. Alltså att mat[i], mat[j] kan ändras, men inte mat[i][j][k]?
 			
