@@ -376,9 +376,314 @@ printf("Took %Lf10 secs to compute.\n",elapsed);
 
 where `TYPE` can be either `mainfile` or `separatefile`, depending on whether we measure variant 1, 2, or 3.
 
+In order to make sure that variant 2 doesn't get inlined, construct a `makefile` along the lines of the following.
+
+~~~make
+CFLAGS=-std=c11 -march=native -O2
+TARGETS=mainfile inlined separatefile
+
+.PHONY : all clean check
+
+all : $(TARGETS)
+
+inlined : inlined.c
+        gcc $(CFLAGS) -o inlined inlined.c
+
+mainfile : mainfile.c
+        gcc $(CFLAGS) -o mainfile mainfile.c
+
+separatefile: separatefile.c mul_cpx_separatefile.h libsep.a
+        gcc $(CFLAGS) -o separatefile separatefile.c -I. -L. -lsep
+
+libsep.a : mul_cpx_separatefile.o
+        ar -r libsep.a mul_cpx_separatefile.o
+
+mul_cpx_separatefile.o : mul_cpx_separatefile.c mul_cpx_separatefile.h
+
+clean :
+        echo "Cleaning up"
+        rm -f $(TARGETS)
+        rm -f *.o
+        rm -f *.a
+
+check :
+        ./mainfile
+        ./separatefile
+        ./inlined
+~~~
+
+As per what has been said in the lecture `Optimization' we expect variant 2 to be slower, because the function cannot be automatically inlined (as it lies in a separate library), and therefore we have to push arguments to the stack, change the instruction block, and return variables -- all of which take extra time.
+
+A bit of bench'ing confirms this.
+
+~~~bash
+[tobias@gantenbein inlining]$ make check
+./mainfile
+This is mainfile. I multiply complex numbers together.
+Took 0.00117710 secs to generate.
+Took 0.00063310 secs to compute.
+./separatefile
+This is separatefile. I multiply complex numbers together.
+Took 0.00104510 secs to generate.
+Took 0.00069810 secs to compute.
+./inlined
+This is inlined. I multiply complex numbers together.
+Took 0.00098810 secs to generate.
+Took 0.00058210 secs to compute.
+~~~
+
+Let's now take a little look with `nm`.
+
+~~~bash
+[tobias@gantenbein inlining]$ nm mainfile
+0000000000601044 B __bss_start
+0000000000601044 b completed.7343
+0000000000601040 D __data_start
+0000000000601040 W data_start
+0000000000400760 t deregister_tm_clones
+0000000000400750 T _dl_relocate_static_pie
+00000000004007d0 t __do_global_dtors_aux
+0000000000600e18 t __do_global_dtors_aux_fini_array_entry
+00000000004008c8 R __dso_handle
+0000000000600e20 d _DYNAMIC
+0000000000601044 D _edata
+0000000000601048 B _end
+                 U exit@@GLIBC_2.2.5
+00000000004008b4 T _fini
+0000000000400800 t frame_dummy
+0000000000600e10 t __frame_dummy_init_array_entry
+0000000000400ad4 r __FRAME_END__
+0000000000601000 d _GLOBAL_OFFSET_TABLE_
+                 w __gmon_start__
+0000000000400958 r __GNU_EH_FRAME_HDR
+00000000004004c8 T _init
+0000000000600e18 t __init_array_end
+0000000000600e10 t __init_array_start
+00000000004008c0 R _IO_stdin_used
+00000000004008b0 T __libc_csu_fini
+0000000000400850 T __libc_csu_init
+                 U __libc_start_main@@GLIBC_2.2.5
+0000000000400540 T main
+                 U malloc@@GLIBC_2.2.5
+0000000000400810 T mul_cpx_mainfile
+                 U printf@@GLIBC_2.2.5
+                 U puts@@GLIBC_2.2.5
+0000000000400790 t register_tm_clones
+0000000000400720 T _start
+                 U timespec_get@@GLIBC_2.16
+0000000000601048 D __TMC_END__
+[tobias@gantenbein inlining]$ nm separatefile
+0000000000601044 B __bss_start
+0000000000601044 b completed.7343
+0000000000601040 D __data_start
+0000000000601040 W data_start
+0000000000400740 t deregister_tm_clones
+0000000000400730 T _dl_relocate_static_pie
+00000000004007b0 t __do_global_dtors_aux
+0000000000600e18 t __do_global_dtors_aux_fini_array_entry
+00000000004008a8 R __dso_handle
+0000000000600e20 d _DYNAMIC
+0000000000601044 D _edata
+0000000000601048 B _end
+                 U exit@@GLIBC_2.2.5
+0000000000400894 T _fini
+00000000004007e0 t frame_dummy
+0000000000600e10 t __frame_dummy_init_array_entry
+0000000000400ac4 r __FRAME_END__
+0000000000601000 d _GLOBAL_OFFSET_TABLE_
+                 w __gmon_start__
+0000000000400940 r __GNU_EH_FRAME_HDR
+00000000004004c8 T _init
+0000000000600e18 t __init_array_end
+0000000000600e10 t __init_array_start
+00000000004008a0 R _IO_stdin_used
+0000000000400890 T __libc_csu_fini
+0000000000400830 T __libc_csu_init
+                 U __libc_start_main@@GLIBC_2.2.5
+0000000000400540 T main
+                 U malloc@@GLIBC_2.2.5
+00000000004007f0 T mul_cpx_separatefile
+                 U printf@@GLIBC_2.2.5
+                 U puts@@GLIBC_2.2.5
+0000000000400770 t register_tm_clones
+0000000000400700 T _start
+                 U timespec_get@@GLIBC_2.16
+0000000000601048 D __TMC_END__
+~~~
+
+What we see here is a so-called "symbol table", see e. g. [here](https://en.wikipedia.org/wiki/Symbol_table). It associates symbols in the source code (e. g. functions or variables, in general defined by the grammar of language) with addresses. As for the flags in the middle, consult the `man`-pages of `nm`.
+
+We do indeed find the symbols we're looking for.
+
+~~~
+0000000000400810 T mul_cpx_mainfile
+~~~
+
+and
+
+~~~
+00000000004007f0 T mul_cpx_separatefile
+~~~
+
+where the flag `T` means that both of these symbols are resolved. This is because we're looking at final, already linked, executable. Had we generated and looked at the corresponding `.o`-file of `separatefile`, we would see the flag `U` -- meaning undefined -- instead.
+
 ## Locality
 
+In this exercise, we investigate the effects of locality in memory access by implementing row sums and column sums of a matrix naïvely. We then implement the slower of the two in a more efficient way.
+
+But let's let the code speak for itself.
+
+~~~C
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+#define SIZE 1000
+
+void row_sums(double * sums, const double ** matrix, size_t nrs, size_t ncs){
+  for ( size_t ix=0; ix < nrs; ++ix ) {
+    double sum = 0;
+    for ( size_t jx=0; jx < ncs; ++jx )
+      sum += matrix[ix][jx];
+    sums[ix] = sum;
+  }
+}
+
+void col_sums(double * sums, const double ** matrix, size_t nrs, size_t ncs){
+  for ( size_t jx=0; jx < ncs; ++jx ) {
+    double sum = 0;
+    for ( size_t ix=0; ix < nrs; ++ix )
+      sum += matrix[ix][jx];
+    sums[jx] = sum;
+  }
+}
+
+//This should be faster as it accesses the memory linearly
+//We do however look up csums quite often, so maybe not
+void rowcol_sums(double *rsums, double *csums, const double ** matrix, size_t nrs, size_t ncs){
+        double current;
+        double sum = 0;
+        for (size_t ix=0; ix<nrs; ++ix){
+                for(size_t jx=0; jx<ncs; ++jx){
+                        current = matrix[ix][jx];
+                        sum += current;
+                        csums[jx] += current;
+                }
+                rsums[ix]=sum;
+                sum=0;
+        }
+}
+
+void main(){
+        struct timespec start,stop;
+        long double elapsed;
+        //fmatrix = flat matrix
+        double * fmat = (double *)malloc(sizeof(double)*SIZE*SIZE);
+        const double ** mat = (const double **)malloc(sizeof(double*)*SIZE);
+	
+	//Row major order, i. e.
+        //a11 a12 a13 a21 a22 a23 a31 a32 a33
+        //for SIZE=3
+
+        for (size_t i = 0, j=0; i<SIZE; ++i, j+=SIZE)
+                mat[i] = fmat + j;
+        //Filling the matrix with ones, because why not?
+        for (size_t k = 0; k<SIZE*SIZE; ++k)
+                *(fmat+k)=1;
+
+        double * sums = (double *)malloc(sizeof(double)*SIZE);
+        double * sums2 = (double *)malloc(sizeof(double)*SIZE);
+
+        timespec_get(&start,TIME_UTC);
+        row_sums(sums, mat, SIZE, SIZE);
+        timespec_get(&stop,TIME_UTC);
+        elapsed = (stop.tv_sec+1.0e-9*stop.tv_nsec)-(start.tv_sec+1.0e-9*start.tv_nsec);
+        printf("%Lf10 secs for row sums.\n",elapsed);
+
+        timespec_get(&start,TIME_UTC);
+        col_sums(sums, mat, SIZE, SIZE);
+        timespec_get(&stop,TIME_UTC);
+        elapsed = (stop.tv_sec+1.0e-9*stop.tv_nsec)-(start.tv_sec+1.0e-9*start.tv_nsec);
+        printf("%Lf10 secs for col sums.\n",elapsed);
+
+        timespec_get(&start,TIME_UTC);
+        rowcol_sums(sums, sums2, mat, SIZE, SIZE);
+        timespec_get(&stop,TIME_UTC);
+        elapsed = (stop.tv_sec+1.0e-9*stop.tv_nsec)-(start.tv_sec+1.0e-9*start.tv_nsec);
+        printf("%Lf10 secs for row col sums.\n",elapsed);
+
+        exit(0);
+}
+~~~
+
+One will notice that `col_sums` is slower than `row_sums`. The key is then to notice that `row_sums` iterates through every entry in the matrix, so that if we only keep track of the column sums in an array, we should be able to simultanteously compute row sums and columns sums using approximately as much time as when just computing row sums.
+
+The function `rowcol_sums` is a realization of this idea. So, does it work? Yes! Here's the `makefile` and a few benchmarks.
+
+~~~make
+CFLAGS=-std=c11 -march=native -pg
+TARGETS=locality locality_fast
+
+.PHONY : all check
+
+all : $(TARGETS)
+
+locality : locality.c
+        gcc $(CFLAGS) -O0 -o locality0 locality.c
+        gcc $(CFLAGS) -O2 -o locality2 locality.c
+
+locality_fast : locality_fast.c
+        gcc $(CFLAGS) -O0 -o locality_fast0 locality_fast.c
+        gcc $(CFLAGS) -O0 -ftest-coverage -fprofile-arcs -o locality_fast0_cov locality_fast.c
+        gcc $(CFLAGS) -O2 -o locality_fast2 locality_fast.c
+
+check :
+        echo "Slow, -O0"
+        ./locality0
+        echo "Slow, -O2"
+        ./locality2
+        echo "Fast, -O0"
+        ./locality_fast0
+        echo "Fast, -O2"
+        ./locality_fast2
+~~~
+~~~bash
+[tobias@gantenbein locality]$ make check
+echo "Slow, -O0"
+Slow, -O0
+./locality0
+0.00366510 secs for row sums.
+0.00433310 secs for col sums.
+echo "Slow, -O2"
+Slow, -O2
+./locality2
+0.00111310 secs for row sums.
+0.00142610 secs for col sums.
+echo "Fast, -O0"
+Fast, -O0
+./locality_fast0
+0.00259910 secs for row sums.
+0.00333110 secs for col sums.
+0.00320110 secs for row col sums.
+echo "Fast, -O2"
+Fast, -O2
+./locality_fast2
+0.00110710 secs for row sums.
+0.00182510 secs for col sums.
+0.00113810 secs for row col sums.
+~~~
+
+The reason for the speed is of course the way in which we access the memory. See the below pictures for a nice visual explanation.
+
+![alt-text](./rowsums.png "Visualization")
+
+![alt-text](./colsums.png "Visualization")
+
+Clearly, the above is just a toy example. In practice, when `SIZE` is just `3`, the whole array can be loaded into cache. However, when `SIZE` is large, such as `1000` and more, this is not the case. And that also explains why `col_sums` is slower than `row_sums` -- we cannot keep as much in the cache as we can for `row_sums`.
+
 ## Indirect addressing
+
+In this exercise we shall do some ostensibly stupid things
 
 ## Writing to HDD and to SSD
 
