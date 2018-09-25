@@ -527,6 +527,8 @@ and
 
 where the flag `T` means that both of these symbols are resolved. This is because we're looking at final, already linked, executable. Had we generated and looked at the corresponding `.o`-file of `separatefile`, we would see the flag `U` -- meaning undefined -- instead.
 
+EDIT: Henrik solved this slightly differently -- see the new `makefile`. Also note that with `-O0`, the compiler doesn't seem to inline the function in `mainfile`. However, in `-O2` that does seem to happen. Also, note that it's not necessary to create a `.a` file in order to prevent inlining. Having an `.o` file works just as well.
+
 ## Locality
 
 In this exercise, we investigate the effects of locality in memory access by implementing row sums and column sums of a matrix naïvely. We then implement the slower of the two in a more efficient way.
@@ -680,6 +682,36 @@ The reason for the speed is of course the way in which we access the memory. See
 ![alt-text](./colsums.png "Visualization")
 
 Clearly, the above is just a toy example. In practice, when `SIZE` is just `3`, the whole array can be loaded into cache. However, when `SIZE` is large, such as `1000` and more, this is not the case. And that also explains why `col_sums` is slower than `row_sums` -- we cannot keep as much in the cache as we can for `row_sums`.
+
+EDIT: Henrik's version of `rowcol_sums` is far faster than his `row_sums`. This is because the following is vectorizable
+~~~C
+for(size_t ix = 0; ix < SIZE; ++ix)
+	for(size_t jx = 0; jx < SIZE; ++jx)
+		sums[jx]+=m[ix][jx];
+~~~
+but this isn't
+~~~C
+for(size_t ix = 0; ix < SIZE; ++ix)
+	for(size_t jx = 0; jx < SIZE; ++jx)
+		sums[ix]+=m[ix][jx];
+~~~
+Also, the way I had it before destroys vectorization. I. e. this
+~~~C
+void rowcol_sums(double *rsums, double *csums, const double ** matrix, size_t nrs, size_t ncs){
+        double current;
+        double sum = 0;
+        for (size_t ix=0; ix<nrs; ++ix){
+                for(size_t jx=0; jx<ncs; ++jx){
+                        current = matrix[ix][jx];//Removing this should make it faster b. c. vectorization
+                        sum += current;//See above. 
+                        csums[jx] += current;
+                }
+                rsums[ix]=sum;
+                sum=0;
+        }
+}
+~~~
+
 
 ## Indirect addressing
 
