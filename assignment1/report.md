@@ -1497,4 +1497,6 @@ Each sample counts as 0.01 seconds.
   8.50      7.33     0.62      501     1.24     1.24  col_sums
 ~~~
 
-So `gprof` indicates the opposite of what the actual timing does. What gives? [Seriously, I don't know.]
+This is explained by not having stabilized the timing _inside_ the program. Calling it lots of times via a `bash` script messes up the memory.
+
+To get an accurate result, simply run lots of iterations and take the average all _inside_ the program.
