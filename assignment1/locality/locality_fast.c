@@ -32,7 +32,6 @@ void rowcol_sums(double *rsums, double *csums, const double ** matrix, size_t nr
 		for(size_t jx=0; jx<ncs; ++jx){
 			current = matrix[ix][jx];//Removing this should make it faster b. c. vectorization
 			//sum += current;//See above. 
-			//sum[jx]+= current;
 			csums[jx] += current;
 		}
 		//rsums[ix]=sum;
