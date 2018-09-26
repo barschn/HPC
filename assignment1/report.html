@@ -546,6 +546,8 @@ Breakpoint 1, main (argc=2, argv=0x7fffffffdf68) at bigsum.c:15
 
 <p>where the flag <code>T</code> means that both of these symbols are resolved. This is because we’re looking at final, already linked, executable. Had we generated and looked at the corresponding <code>.o</code>-file of <code>separatefile</code>, we would see the flag <code>U</code> – meaning undefined – instead.</p>
 
+<p>EDIT: Henrik solved this slightly differently – see the new <code>makefile</code>. Also note that with <code>-O0</code>, the compiler doesn’t seem to inline the function in <code>mainfile</code>. However, in <code>-O2</code> that does seem to happen. Also, note that it’s not necessary to create a <code>.a</code> file in order to prevent inlining. Having an <code>.o</code> file works just as well.</p>
+
 <h2 id="locality">Locality</h2>
 
 <p>In this exercise, we investigate the effects of locality in memory access by implementing row sums and column sums of a matrix naïvely. We then implement the slower of the two in a more efficient way.</p>
@@ -705,6 +707,35 @@ Breakpoint 1, main (argc=2, argv=0x7fffffffdf68) at bigsum.c:15
 <p><img src="./colsums.png" alt="alt-text" title="Visualization" /></p>
 
 <p>Clearly, the above is just a toy example. In practice, when <code>SIZE</code> is just <code>3</code>, the whole array can be loaded into cache. However, when <code>SIZE</code> is large, such as <code>1000</code> and more, this is not the case. And that also explains why <code>col_sums</code> is slower than <code>row_sums</code> – we cannot keep as much in the cache as we can for <code>row_sums</code>.</p>
+
+<p>EDIT: Henrik’s version of <code>rowcol_sums</code> is far faster than his <code>row_sums</code>. This is because the following is vectorizable
+~~~C
+for(size_t ix = 0; ix &lt; SIZE; ++ix)
+	for(size_t jx = 0; jx &lt; SIZE; ++jx)
+		sums[jx]+=m[ix][jx];
+~~~
+but this isn’t
+~~~C
+for(size_t ix = 0; ix &lt; SIZE; ++ix)
+	for(size_t jx = 0; jx &lt; SIZE; ++jx)
+		sums[ix]+=m[ix][jx];
+~~~
+Also, the way I had it before destroys vectorization. I. e. this
+~~~C
+void rowcol_sums(double *rsums, double *csums, const double ** matrix, size_t nrs, size_t ncs){
+        double current;
+        double sum = 0;
+        for (size_t ix=0; ix&lt;nrs; ++ix){
+                for(size_t jx=0; jx&lt;ncs; ++jx){
+                        current = matrix[ix][jx];//Removing this should make it faster b. c. vectorization
+                        sum += current;//See above. 
+                        csums[jx] += current;
+                }
+                rsums[ix]=sum;
+                sum=0;
+        }
+}
+~~~</p>
 
 <h2 id="indirect-addressing">Indirect addressing</h2>
 
