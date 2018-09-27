@@ -17,9 +17,11 @@ double *pmatentries;
 
 //This is where we Newton
 void *newton(void *arg){
-	double *x0l = (double *)arg;
-	double complex x0inv = 1/(x0l[0]+I*x0l[1]);
-	printf("%lf + I*%lf\n",creal(x0inv),cimag(x0inv));
+	while(abs(x-xprev)>=1e-3){
+		xprev=x;
+		x=x-(x^D-1)/(D*x^(D-1));
+	}
+
 	return NULL;
 }
 
