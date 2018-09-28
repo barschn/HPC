@@ -2,9 +2,9 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <tgmath.h>
-#include <complex.h>
 #include <time.h>
+#include <gsl/gsl_complex.h>
+#include <gsl/gsl_complex_math.h>
 
 #define GLEVELS 15
 
@@ -17,18 +17,19 @@ pthread_mutex_t mutex_main;
 unsigned char ** gi; //Gray image
 unsigned char * gi_entries;
 
+//With gsl instead of complex.h
 void *newton(void *arg){
 	int * matc = (int *)arg;
 	int mi = matc[0], mj = matc[1];
 	double linesd = (double) lines;
 	double xc = -2+4*mj/linesd+4/(2*linesd);
 	double yc = -2+4*(linesd-1-mi)/linesd+4/(2*linesd);
-	double complex xprev, x;
+	gsl_complex xprev, x;
 	//printf("at (%d,%d) |-> %lf+I*%lf\n",mi,mj,xc,yc);
 	//Every nthreads row
 	for(size_t flati=0; flati < lines*lines/nthreads; ++flati){
-		xprev = xc + I*yc;
-		x = xprev-(pow(xprev,d)-1)/(d*pow(xprev,d-1));
+		xprev = gsl_complex_rect(xc,yc);
+		x = xprev-(pow(xprev,d)-1)/(d*pow(xprev,d-1)); //AM HERE!
 		size_t iter=0;
 		while(cabs(x-xprev)>=1e-3 && cabs(x)>=1e-3 && creal(x)<1e10 && cimag(x)<1e10){
 			xprev=x;

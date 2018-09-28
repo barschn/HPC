@@ -4,8 +4,15 @@
 .PHONY : all check clean
 
 CFLAGS = -std=c11 -march=native -O3
+HEADS = -I/home/tobias/local_gsl/include
+LIBS = -L/home/tobias/local_gsl/lib
+lIBS = -lgsl -lgslcblas -lm
 
-all : example_gsl
+all : example_gsl complex_in_gsl
 
 example_gsl : example_gsl.c
-	gcc $(CFLAGS) -I/home/tobias/local_gsl/include -o example_gsl -L/home/tobias/local_gsl/lib example_gsl.c -lgsl -lgslcblas -lm
+	gcc $(CFLAGS) $(HEADS) $(LIBS) -o example_gsl example_gsl.c $(lIBS)
+
+complex_in_gsl : complex_in_gsl.c
+	gcc $(CFLAGS) $(HEADS) $(LIBS) -o complex_in_gsl complex_in_gsl.c $(lIBS)
+
