@@ -2,11 +2,15 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <tgmath.h>
-#include <complex.h>
 #include <time.h>
+#include <gsl/gsl_complex.h>
+#include <gsl/gsl_complex_math.h>
 
 #define GLEVELS 15
+
+#define X4 gsl_complex_rect(GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)-6*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)+GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev),4*(GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_IMAG(xprev)-GSL_REAL(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)))
+
+#define X6 gsl_complex_rect(-1.0*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)+15.0*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)-15.0*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)+GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev),6.0*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_REAL(xprev)-20.0*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)+6.0*GSL_IMAG(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev))
 
 int nthreads;
 int lines;
@@ -17,34 +21,123 @@ pthread_mutex_t mutex_main;
 unsigned char ** gi; //Gray image
 unsigned char * gi_entries;
 
-void *newton(void *arg){
-	int * matc = (int *)arg;
-	int mi = matc[0], mj = matc[1];
-	double linesd = (double) lines;
-	double xc = -2+4*mj/linesd+4/(2*linesd);
-	double yc = -2+4*(linesd-1-mi)/linesd+4/(2*linesd);
-	double complex xprev, x;
-	//printf("at (%d,%d) |-> %lf+I*%lf\n",mi,mj,xc,yc);
-	//Every nthreads row
+void n1(int m1, int m2){
+	int iter=1;
 	for(size_t flati=0; flati < lines*lines/nthreads; ++flati){
-		xprev = xc + I*yc;
-		x = xprev-(pow(xprev,d)-1)/(d*pow(xprev,d-1));
-		size_t iter=0;
-		while(cabs(x-xprev)>=1e-3 && cabs(x)>=1e-3 && creal(x)<1e10 && cimag(x)<1e10){
+		gi[m1][m2] = (iter*GLEVELS)/200 % GLEVELS;
+		m2 = (flati+1)%lines;
+		m1= nthreads*((flati+1)/lines);
+	}
+}
+
+void n2(int m1, int m2){
+	int iter;
+	double linesd = (double) lines;
+	double xc = -2+4*m2/linesd+4/(2*linesd);
+	double yc = -2+4*(linesd-1-m1)/linesd+4/(2*linesd);
+	gsl_complex x, xprev;
+	for(size_t flati=0; flati < lines*lines/nthreads; ++flati){
+		xprev = gsl_complex_rect(xc,yc);
+		x = gsl_complex_mul_real(gsl_complex_add(xprev,gsl_complex_inverse(xprev)),0.5);
+		while(gsl_complex_abs(gsl_complex_sub(x,xprev))>=1e-3
+				&& gsl_complex_abs(x)>=1e-3
+				&& GSL_REAL(x)<1e10
+				&& GSL_IMAG(x)<1e10){
 			xprev=x;
-			x=xprev-(pow(xprev,d)-1)/(d*pow(xprev,d-1));
+			x = gsl_complex_mul_real(gsl_complex_add(xprev,gsl_complex_inverse(xprev)),0.5);
 			iter++;
 		}
-		//printf("at (%d,%d) converged to %lf+I*%lf\n",mi,mj,creal(x),cimag(x));
-		//Doing stuff with iter and x
-		//Ugly, will change
-		gi[mi][mj]=(iter*GLEVELS)/200 % GLEVELS;
-		mj = (flati+1)%lines;
-		mi = nthreads*((flati+1)/lines);
-		//Probably inefficient
-		xc = -2+4*mj/linesd+4/(2*linesd);
-		yc = -2+4*(linesd-1-mi)/linesd+4/(2*linesd);	
+		gi[m1][m2]=(iter*GLEVELS)/200 % GLEVELS;
+		m2 = (flati+1) % lines;
+		m1 = nthreads*((flati+1)/lines);
+		xc = -2+4*m2/linesd+4/(2*linesd);
+		yc = -2+4*(linesd-1-m1)/linesd+4/(2*linesd);
 	}
+}
+
+void n3(int m1, int m2){
+}
+
+void n4(int m1, int m2){
+}
+
+void n5(int m1, int m2){
+	int iter;
+	double linesd = (double) lines;
+	double xc = -2+4*m2/linesd+4/(2*linesd);
+	double yc = -2+4*(linesd-1-m1)/linesd+4/(2*linesd);
+	gsl_complex x, xprev;
+	for(size_t flati=0; flati < lines*lines/nthreads; ++flati){
+		xprev = gsl_complex_rect(xc,yc);
+		x = gsl_complex_add(gsl_complex_mul_real(xprev,0.8),gsl_complex_mul_real(gsl_complex_inverse(X4),0.2));
+		while(gsl_complex_abs(gsl_complex_sub(x,xprev))>=1e-3
+				&& gsl_complex_abs(x)>=1e-3
+				&& GSL_REAL(x)<1e10
+				&& GSL_IMAG(x)<1e10){
+			xprev=x;
+			x = gsl_complex_add(gsl_complex_mul_real(xprev,0.8),gsl_complex_mul_real(gsl_complex_inverse(X4),0.2));
+			iter++;
+		}
+		gi[m1][m2]=(iter*GLEVELS)/200 % GLEVELS;
+		m2 = (flati+1) % lines;
+		m1 = nthreads*((flati+1)/lines);
+		xc = -2+4*m2/linesd+4/(2*linesd);
+		yc = -2+4*(linesd-1-m1)/linesd+4/(2*linesd);
+	}
+}
+
+void n6(int m1, int m2){
+}
+
+void n7(int m1, int m2){
+	int iter;
+	double linesd = (double) lines;
+	double xc = -2+4*m2/linesd+4/(2*linesd);
+	double yc = -2+4*(linesd-1-m1)/linesd+4/(2*linesd);
+	gsl_complex x, xprev;
+	for(size_t flati=0; flati < lines*lines/nthreads; ++flati){
+		xprev = gsl_complex_rect(xc,yc);
+		x = gsl_complex_add(gsl_complex_mul_real(xprev,0.8571428571428571),gsl_complex_mul_real(gsl_complex_inverse(X6),0.14285714285714285));
+		while(gsl_complex_abs(gsl_complex_sub(x,xprev))>=1e-3
+				&& gsl_complex_abs(x)>=1e-3
+				&& GSL_REAL(x)<1e10
+				&& GSL_IMAG(x)<1e10){
+			xprev=x;
+			x = gsl_complex_add(gsl_complex_mul_real(xprev,0.8571428571428571),gsl_complex_mul_real(gsl_complex_inverse(X6),0.14285714285714285));
+			iter++;
+		}
+		gi[m1][m2]=(iter*GLEVELS)/200 % GLEVELS;
+		m2 = (flati+1) % lines;
+		m1 = nthreads*((flati+1)/lines);
+		xc = -2+4*m2/linesd+4/(2*linesd);
+		yc = -2+4*(linesd-1-m1)/linesd+4/(2*linesd);
+	}
+}
+
+void nbig(int m1, int m2){
+}
+
+void *newton(void *arg){
+	int * matc = (int *)arg;
+	int mi = matc[0], mj = matc[1];	
+	if (d == 1){
+		n1(mi,mj);
+	}else if(d == 2){
+		n2(mi,mj);
+	}else if(d == 3){
+		n3(mi,mj);
+	}else if(d == 4){
+		n4(mi,mj);
+	}else if(d == 5){
+		n5(mi,mj);
+	}else if(d == 6){
+		n6(mi,mj);
+	}else if(d == 7){
+		n7(mi,mj);
+	}else{
+		//With gsl and a fast pow
+		nbig(mi,mj);
+	}	
 	return NULL;
 }
 
@@ -95,6 +188,7 @@ int main(int argc, char *argv[]){
 		}
 	}
 	pthread_mutex_destroy(&mutex_main);	
+	timespec_get(&stop, TIME_UTC);
 	//Write to file
 	FILE * file;
 	file=fopen("grayscale.pgm","wb");
@@ -102,9 +196,8 @@ int main(int argc, char *argv[]){
 	fwrite(gi_entries,sizeof(unsigned char),lines*lines,file);
 	fclose(file);
 	free(gi_entries);
-	free(gi);
-	timespec_get(&stop, TIME_UTC);
+	free(gi);	
 	elapsed = (stop.tv_sec+1e-9*stop.tv_nsec)-(start.tv_sec+1.0e-9*start.tv_nsec);
-	printf("elapsed=%.15Lf secs\n",elapsed);
+	printf("elapsed excl wr=%.15Lf secs\n",elapsed);
 	return 0;
 }

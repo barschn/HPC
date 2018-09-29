@@ -25,15 +25,33 @@ void *newton(void *arg){
 	double xc = -2+4*mj/linesd+4/(2*linesd);
 	double yc = -2+4*(linesd-1-mi)/linesd+4/(2*linesd);
 	gsl_complex xprev, x;
+	double dd = (double) d;
 	//printf("at (%d,%d) |-> %lf+I*%lf\n",mi,mj,xc,yc);
 	//Every nthreads row
 	for(size_t flati=0; flati < lines*lines/nthreads; ++flati){
 		xprev = gsl_complex_rect(xc,yc);
-		x = xprev-(pow(xprev,d)-1)/(d*pow(xprev,d-1)); //AM HERE!
+		x = gsl_complex_add(
+				gsl_complex_mul_real(xprev,1.0-1.0/dd),
+				gsl_complex_mul_real(
+					gsl_complex_pow_real(
+						gsl_complex_inverse(xprev),
+						dd-1.0),
+					1.0/dd)
+				);
 		size_t iter=0;
-		while(cabs(x-xprev)>=1e-3 && cabs(x)>=1e-3 && creal(x)<1e10 && cimag(x)<1e10){
+		while(gsl_complex_abs(gsl_complex_sub(x,xprev))>=1e-3 
+				&& gsl_complex_abs(x)>=1e-3 
+				&& GSL_REAL(x)<1e10 
+				&& GSL_IMAG(x)<1e10){
 			xprev=x;
-			x=xprev-(pow(xprev,d)-1)/(d*pow(xprev,d-1));
+			x=gsl_complex_add(
+				gsl_complex_mul_real(xprev,1.0-1.0/dd),
+				gsl_complex_mul_real(
+					gsl_complex_pow_real(
+						gsl_complex_inverse(xprev),
+						dd-1.0),
+					1.0/dd)
+				);
 			iter++;
 		}
 		//printf("at (%d,%d) converged to %lf+I*%lf\n",mi,mj,creal(x),cimag(x));

@@ -2,10 +2,15 @@
 
 TARGETS = newton
 
+CFLAGS = -std=c11 -march=native -O3
+HEADS = -I/home/tobias/local_gsl/include
+LIBS = -L/home/tobias/local_gsl/lib
+lIBS = -lgsl -lgslcblas -lm -lpthread
+
 all : $(TARGETS)
 
 newton : newton.c
-	gcc -O3 -march=native -std=c11 newton.c -o newton -lpthread
+	gcc $(CFLAGS) $(HEADS) $(LIBS) -o newton newton.c $(lIBS)
 
 clean :
 	rm -f $(TARGETS)
