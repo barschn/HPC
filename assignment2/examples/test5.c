@@ -7,7 +7,6 @@
 #include <gsl/gsl_complex_math.h>
 
 #define GLEVELS 15
-#define GMAXITER 200
 
 #define X4 gsl_complex_rect(GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)-6*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)+GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev),4*(GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_IMAG(xprev)-GSL_REAL(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)))
 
@@ -22,67 +21,75 @@ pthread_mutex_t mutex_main;
 unsigned char ** gi; //Gray image
 unsigned char * gi_entries;
 
-void n1(int t){
-	//Everything converges to 1, so don't do anything.
-	return NULL;	
+void n1(int m1, int m2){
+	int iter=1;
+	for(size_t flati=0; flati < lines*lines/nthreads; ++flati){
+		gi[m1][m2] = (iter*GLEVELS)/200 % GLEVELS;
+		m2 = (flati+1)%lines;
+		m1= nthreads*((flati+1)/lines);
+	}
 }
 
-void n2(int t){
+void n2(int m1, int m2){
 	int iter;
 	double linesd = (double) lines;
-	int m1 = 0, m2 = t;
-	double xc = //FIXME
-	double yc = //FIXME
+	double xc = -2+4*m2/linesd+4/(2*linesd);
+	double yc = -2+4*(linesd-1-m1)/linesd+4/(2*linesd);
 	gsl_complex x, xprev;
 	for(size_t flati=0; flati < lines*lines/nthreads; ++flati){
 		xprev = gsl_complex_rect(xc,yc);
 		x = gsl_complex_mul_real(gsl_complex_add(xprev,gsl_complex_inverse(xprev)),0.5);
-		while(!isclose(x) && gsl_complex_abs(x)>=1e-3 && GSL_REAL(x)<1e10 && GSL_IMAG(x)<1e10){
+		while(gsl_complex_abs(gsl_complex_sub(x,xprev))>=1e-3
+				&& gsl_complex_abs(x)>=1e-3
+				&& GSL_REAL(x)<1e10
+				&& GSL_IMAG(x)<1e10){
 			xprev=x;
 			x = gsl_complex_mul_real(gsl_complex_add(xprev,gsl_complex_inverse(xprev)),0.5);
 			iter++;
 		}
-		gi[m1][m2]=(iter*GLEVELS)/GMAXITER % GLEVELS;
-		m2 = //FIXME
-		m1 = //FIXME
-		xc = //FIXME
-		yc = //FIXME
+		gi[m1][m2]=(iter*GLEVELS)/200 % GLEVELS;
+		m2 = (flati+1) % lines;
+		m1 = nthreads*((flati+1)/lines);
+		xc = -2+4*m2/linesd+4/(2*linesd);
+		yc = -2+4*(linesd-1-m1)/linesd+4/(2*linesd);
 	}
 }
 
-void n3(int t){
+void n3(int m1, int m2){
 }
 
-void n4(int t){
+void n4(int m1, int m2){
 }
 
-void n5(int t){
+void n5(int m1, int m2){
 	int iter;
 	double linesd = (double) lines;
-	int m1 = 0, m2 = t;
-	double xc = //FIXME
-	double yc = //FIXME
+	double xc = -2+4*m2/linesd+4/(2*linesd);
+	double yc = -2+4*(linesd-1-m1)/linesd+4/(2*linesd);
 	gsl_complex x, xprev;
 	for(size_t flati=0; flati < lines*lines/nthreads; ++flati){
 		xprev = gsl_complex_rect(xc,yc);
 		x = gsl_complex_add(gsl_complex_mul_real(xprev,0.8),gsl_complex_mul_real(gsl_complex_inverse(X4),0.2));
-		while(!isclose(x) && gsl_complex_abs(x)>=1e-3 && GSL_REAL(x)<1e10 && GSL_IMAG(x)<1e10){
+		while(gsl_complex_abs(gsl_complex_sub(x,xprev))>=1e-3
+				&& gsl_complex_abs(x)>=1e-3
+				&& GSL_REAL(x)<1e10
+				&& GSL_IMAG(x)<1e10){
 			xprev=x;
 			x = gsl_complex_add(gsl_complex_mul_real(xprev,0.8),gsl_complex_mul_real(gsl_complex_inverse(X4),0.2));
 			iter++;
 		}
-		gi[m1][m2]=(iter*GLEVELS)/GMAXITER % GLEVELS;
-		m2 = //FIXME
-		m1 = //FIXME
-		xc = //FIXME
-		yc = //FIXME
+		gi[m1][m2]=(iter*GLEVELS)/200 % GLEVELS;
+		m2 = (flati+1) % lines;
+		m1 = nthreads*((flati+1)/lines);
+		xc = -2+4*m2/linesd+4/(2*linesd);
+		yc = -2+4*(linesd-1-m1)/linesd+4/(2*linesd);
 	}
 }
 
-void n6(int t){
+void n6(int m1, int m2){
 }
 
-void n7(int t){
+void n7(int m1, int m2){
 	int iter;
 	double linesd = (double) lines;
 	double xc = -2+4*m2/linesd+4/(2*linesd);

@@ -1,6 +1,6 @@
 .PHONY : all check clean
 
-TARGETS = newton
+TARGETS = newton newton_debug
 
 CFLAGS = -std=c11 -march=native -O3
 HEADS = -I/home/tobias/local_gsl/include
@@ -11,6 +11,9 @@ all : $(TARGETS)
 
 newton : newton.c
 	gcc $(CFLAGS) $(HEADS) $(LIBS) -o newton newton.c $(lIBS)
+
+newton_debug:
+	gcc -g $(CFLAGS) $(HEADS) $(LIBS) -o newton_debug newton.c $(lIBS)
 
 clean :
 	rm -f $(TARGETS)
