@@ -17,7 +17,6 @@
 
 #define X6 gsl_complex_rect(-1.0*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)+15.0*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)-15.0*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)+GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev),6.0*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_REAL(xprev)-20.0*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)+6.0*GSL_IMAG(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev))
 
-FILE * file;
 int nthreads;
 int lines;
 int d;
@@ -43,25 +42,32 @@ gsl_complex z7_4;
 gsl_complex z7_5;
 gsl_complex z7_6;
 
-pthread_mutex_t mutex_itemdone;
+pthread_mutex_t mutex_main;
 
-char *** gi; //Gray image
-char ** gi_entries;
+unsigned char ** gi; //Gray image
+unsigned char * gi_entries;
 
-char *** ci; //RGB image
-char ** ci_entries;
-
-
-const char * [] colors={
-	"0 0 0 ",
-	"0 0 255",
-	"0 255 0",
-	"0 255 255",
-	"255 0 0",
-	"255 0 255",
-	"255 255 0",
-	"255 255 255"
+struct rgb{
+	unsigned char r;
+	unsigned char g;
+	unsigned char b;
 };
+
+struct rgb ** ci; //RGB image
+struct rgb * ci_entries;
+
+const struct rgb colors[]={
+	{.r=0, .g=0, .b=0},
+	{.r=0, .g=0, .b=CLEVELS},
+	{.r=0, .g=CLEVELS, .b=0},
+	{.r=0, .g=CLEVELS, .b=CLEVELS},
+	{.r=CLEVELS, .g=0, .b=0},
+	{.r=CLEVELS, .g=0, .b=CLEVELS},
+	{.r=CLEVELS, .g=CLEVELS, .b=0},
+	{.r=CLEVELS, .g=CLEVELS, .b=CLEVELS}
+};
+
+//color vector
 
 
 int notisclose2(gsl_complex x){
@@ -346,7 +352,7 @@ int main(int argc, char *argv[]){
 	struct timespec start, stop;
 	long double elapsed;
 	timespec_get(&start, TIME_UTC);
-	pthread_mutex_init(&mutex_itemdone,NULL);
+	pthread_mutex_init(&mutex_main,NULL);
 	//Creation
 	for(t = 0; t < nthreads; ++t){
 		if(ret = pthread_create(threads+t, NULL, newton, (void*)t)){
@@ -361,7 +367,7 @@ int main(int argc, char *argv[]){
 			exit(1);
 		}
 	}
-	pthread_mutex_destroy(&mutex_itemdone);		
+	pthread_mutex_destroy(&mutex_main);		
 	//Write to file
 	FILE * file;
 	file=fopen("grayscale.pgm","w");

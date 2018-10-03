@@ -25,14 +25,15 @@ void col_sums(double * sums, const double ** matrix, size_t nrs, size_t ncs){
 //This should be faster as it accesses the memory linearly
 //We do however look up csums quite often, so maybe not
 void rowcol_sums(double *rsums, double *csums, const double ** matrix, size_t nrs, size_t ncs){
-	double current;
+	//double current;
 	//double sum = 0;
 	//double * sum = (double *)malloc(ncs*sizeof(double));
 	for (size_t ix=0; ix<nrs; ++ix){
 		for(size_t jx=0; jx<ncs; ++jx){
-			current = matrix[ix][jx];//Removing this should make it faster b. c. vectorization
-			//sum += current;//See above. 
-			csums[jx] += current;
+			//current = matrix[ix][jx];//Removing this should make it faster b. c. vectorization
+			//rsums[ix] += matrix[ix][jx];//See above. 
+			rsums[ix] += matrix[ix][jx];
+			//csums[jx] += matrix[ix][jx];
 		}
 		//rsums[ix]=sum;
 		//sum=0;

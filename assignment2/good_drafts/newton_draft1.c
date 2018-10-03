@@ -8,7 +8,6 @@
 #include <gsl/gsl_math.h>
 
 #define GLEVELS 255
-#define CLEVELS 255
 #define GMAXITER 200
 
 #define X2 gsl_complex_rect(GSL_REAL(xprev)*GSL_REAL(xprev)-GSL_IMAG(xprev)*GSL_IMAG(xprev),2*GSL_REAL(xprev)*GSL_IMAG(xprev))
@@ -17,7 +16,6 @@
 
 #define X6 gsl_complex_rect(-1.0*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)+15.0*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)-15.0*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)+GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev),6.0*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_REAL(xprev)-20.0*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_IMAG(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)+6.0*GSL_IMAG(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev)*GSL_REAL(xprev))
 
-FILE * file;
 int nthreads;
 int lines;
 int d;
@@ -43,26 +41,13 @@ gsl_complex z7_4;
 gsl_complex z7_5;
 gsl_complex z7_6;
 
-pthread_mutex_t mutex_itemdone;
+pthread_mutex_t mutex_main;
 
-char *** gi; //Gray image
-char ** gi_entries;
+unsigned char ** gi; //Gray image
+unsigned char * gi_entries;
 
-char *** ci; //RGB image
-char ** ci_entries;
-
-
-const char * [] colors={
-	"0 0 0 ",
-	"0 0 255",
-	"0 255 0",
-	"0 255 255",
-	"255 0 0",
-	"255 0 255",
-	"255 255 0",
-	"255 255 255"
-};
-
+int ** ci; //RGB image
+int * ci_entries;
 
 int notisclose2(gsl_complex x){
 	if((abs(GSL_REAL(x)-1)>=1e-3 || abs(GSL_IMAG(x))>=1e-3) 
@@ -95,31 +80,22 @@ int notisclose4(gsl_complex x){
 	return 1;
 }
 
-int isclose5(gsl_complex x){
+int notisclose5(gsl_complex x){
 	if((abs(GSL_REAL(x)-GSL_REAL(z5_0)) >= 1e-3 || abs(GSL_IMAG(x)-GSL_IMAG(z5_0)) >= 1e-3)
 			&& (abs(GSL_REAL(x)-GSL_REAL(z5_1)) >= 1e-3 || abs(GSL_IMAG(x)-GSL_IMAG(z5_1)) >= 1e-3)
 			&& (abs(GSL_REAL(x)-GSL_REAL(z5_2)) >= 1e-3 || abs(GSL_IMAG(x)-GSL_IMAG(z5_2)) >= 1e-3)
 			&& (abs(GSL_REAL(x)-GSL_REAL(z5_3)) >= 1e-3 || abs(GSL_IMAG(x)-GSL_IMAG(z5_3)) >= 1e-3)
 			&& (abs(GSL_REAL(x)-GSL_REAL(z5_4)) >= 1e-3 || abs(GSL_IMAG(x)-GSL_IMAG(z5_4)) >= 1e-3)){
-		return 0;
+		return 1;
 	}else if(gsl_complex_abs2(gsl_complex_sub(x,z5_0))>=1e-6
 			&& gsl_complex_abs2(gsl_complex_sub(x,z5_1))>=1e-6
 			&& gsl_complex_abs2(gsl_complex_sub(x,z5_2))>=1e-6
 			&& gsl_complex_abs2(gsl_complex_sub(x,z5_3))>=1e-6
 			&& gsl_complex_abs2(gsl_complex_sub(x,z5_4))>=1e-6){
-		return 0;
-	}else if (gsl_complex_abs2(gsl_complex_sub(x,z5_0))<1e-6){
 		return 1;
-	}else if (gsl_complex_abs2(gsl_complex_sub(x,z5_1))<1e-6){
-		return 2;
-	}else if (gsl_complex_abs2(gsl_complex_sub(x,z5_2))<1e-6){
-		return 3;
-	}else if (gsl_complex_abs2(gsl_complex_sub(x,z5_3))<1e-6){
-		return 4;
 	}else{
-		return 5;
+		return 0;
 	}
-
 }
 
 int notisclose6(gsl_complex x){
@@ -211,7 +187,6 @@ void n5(int t){
 	double linesd = (double) lines;
 	int m1, m2;
 	double xc, yc;
-	int c = 0;
 	gsl_complex x, xprev;
 	for(size_t flati=0; flati < lines*(lines/nthreads); ++flati){
 		m2 = flati % lines;
@@ -220,13 +195,12 @@ void n5(int t){
 		yc = -2+4*(linesd-1-m1)/linesd+4/(2*linesd);
 		xprev = gsl_complex_rect(xc,yc);
 		x = gsl_complex_add(gsl_complex_mul_real(xprev,0.8),gsl_complex_mul_real(gsl_complex_inverse(X4),0.2));
-		while((c=isclose5(x))==0 && gsl_complex_abs2(x)>=1e-6 && GSL_REAL(x)<1e10 && GSL_IMAG(x)<1e10){
+		while(notisclose5(x) && gsl_complex_abs2(x)>=1e-6 && GSL_REAL(x)<1e10 && GSL_IMAG(x)<1e10){
 			xprev=x;
 			x = gsl_complex_add(gsl_complex_mul_real(xprev,0.8),gsl_complex_mul_real(gsl_complex_inverse(X4),0.2));
 			iter++;
 		}
 		gi[m1][m2]= (unsigned char) iter % GLEVELS;
-		ci[m1][m2]= colors[c];
 		iter = 0;
 	}
 }
@@ -317,17 +291,15 @@ int main(int argc, char *argv[]){
 	//Initializing the images
 	gi = (unsigned char **)malloc(sizeof(char*)*lines);
 	gi_entries = (unsigned char *)malloc(sizeof(char)*lines*lines);
-	ci = (struct rgb **)malloc(sizeof(struct rgb *)*lines);
-	ci_entries = (struct rgb *)malloc(sizeof(struct rgb)*lines*lines);
+	ci = (int **)malloc(sizeof(int *)*lines);
+	ci_entries = (int *)malloc(sizeof(int)*lines*lines);
 	for(size_t i=0, j=0; i < lines; ++i, j+=lines){
 		gi[i]=gi_entries+j;
 		ci[i]=ci_entries+j;
 	}
 	for(size_t i=0; i < lines*lines; ++i){
 		gi_entries[i]=(unsigned char)0;
-		ci_entries[i].r=0;
-		ci_entries[i].g=0;
-		ci_entries[i].b=0;
+		ci_entries[i]=0;
 	}
 
 	int ret;
@@ -346,7 +318,7 @@ int main(int argc, char *argv[]){
 	struct timespec start, stop;
 	long double elapsed;
 	timespec_get(&start, TIME_UTC);
-	pthread_mutex_init(&mutex_itemdone,NULL);
+	pthread_mutex_init(&mutex_main,NULL);
 	//Creation
 	for(t = 0; t < nthreads; ++t){
 		if(ret = pthread_create(threads+t, NULL, newton, (void*)t)){
@@ -361,21 +333,15 @@ int main(int argc, char *argv[]){
 			exit(1);
 		}
 	}
-	pthread_mutex_destroy(&mutex_itemdone);		
+	pthread_mutex_destroy(&mutex_main);		
 	//Write to file
 	FILE * file;
-	file=fopen("grayscale.pgm","w");
+	file=fopen("grayscale.pgm","wb");
 	fprintf(file,"P5\n%d %d\n%d\n",lines,lines,GLEVELS);
 	fwrite(gi_entries,sizeof(unsigned char),lines*lines,file);
 	fclose(file);
-	file=fopen("color.pgm","wb");
-	fprintf(file,"P6\n%d %d\n%d\n",lines,lines,CLEVELS);
-	fwrite(ci_entries,sizeof(struct rgb),lines*lines,file);
-	fclose(file);
 	free(gi_entries);
-	free(gi);
-	free(ci_entries);
-	free(ci);	
+	free(gi);	
 	timespec_get(&stop, TIME_UTC);
 	elapsed = (stop.tv_sec+1e-9*stop.tv_nsec)-(start.tv_sec+1.0e-9*start.tv_nsec);
 	printf("elapsed incl wr=%.15Lf secs\n",elapsed);
