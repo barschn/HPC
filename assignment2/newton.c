@@ -12,7 +12,7 @@
 
 #define GLEVELS 255
 #define CLEVELS 255
-#define GMAXITER 200
+#define WAITTIME 50000
 
 //NOTE THAT THESE DO NOT USE xprev ANYMORE!
 
@@ -27,7 +27,9 @@ int nthreads;
 int lines;
 int d;
 
-const struct timespec sleep_timespec = {.tv_sec = 0, .tv_nsec=1000000};
+
+const struct timespec sleep_timespec = {.tv_sec = 0, .tv_nsec=WAITTIME};
+
 //third roots of unity
 gsl_complex z3_0;
 gsl_complex z3_1;
@@ -240,9 +242,9 @@ void n5(int t){
 		//	255 255 255 
 		//which is, if we end on whitespace equal to 12 chars, i. e. 12 bytes.
 		//For this to be formatted correctly on output we also need the newline
-		//char and the null char, i. e. \n and \0, each being 2 bytes
-		char * grow = (char *)malloc(12*lines+2);
-		char * crow = (char *)malloc(12*lines+2);
+		//char (but _NOT_ the null character)
+		char * grow = (char *)malloc(12*lines+1);
+		char * crow = (char *)malloc(12*lines+1);
 		for(m2 = 0; m2 < lines; ++m2){
 			xc = -2+4*m2/linesd+4/(2*linesd);
 			yc = -2+4*(linesd-1-m1)/linesd+4/(2*linesd);
@@ -251,54 +253,41 @@ void n5(int t){
 				x = gsl_complex_add(gsl_complex_mul_real(x,0.8),gsl_complex_mul_real(gsl_complex_inverse(X4),0.2));
 				iter++;
 			}
-			//printf("iter = %d\n(iter*10) mod GLEVELS = %d\n",iter,(iter*10)%GLEVELS);
+			//DEBUG printf("iter = %d\n(iter*10) mod GLEVELS = %d\n",iter,(iter*10)%GLEVELS);
 			sprintf(buffer,"%3d %3d %3d ",(iter*10)%GLEVELS,(iter*10)%GLEVELS,(iter*10)%GLEVELS);
-			printf("buffer =   {%c,%c,%c,%c,%c,%c,%c,%c,%c,%c,%c,%c,%c}\n",buffer[0],buffer[1],buffer[2],buffer[3],
+			/*DEBUG printf("buffer =   {%c,%c,%c,%c,%c,%c,%c,%c,%c,%c,%c,%c,%c}\n",buffer[0],buffer[1],buffer[2],buffer[3],
 										buffer[4],buffer[5],buffer[6],buffer[7],
 										buffer[8],buffer[9],buffer[10],buffer[11],
-										buffer[12]);
-			printf("colors+%d = {%c,%c,%c,%c,%c,%c,%c,%c,%c,%c,%c,%c,%c}\n",c,*(*(colors+c)+0),*(*(colors+c)+1),*(*(colors+c)+2),*(*(colors+c)+3),
+										buffer[12]);*/
+			/*DEBUG printf("colors+%d = {%c,%c,%c,%c,%c,%c,%c,%c,%c,%c,%c,%c,%c}\n",c,*(*(colors+c)+0),*(*(colors+c)+1),*(*(colors+c)+2),*(*(colors+c)+3),
 											*(*(colors+c)+4),*(*(colors+c)+5),*(*(colors+c)+6),*(*(colors+c)+7),
 											*(*(colors+c)+8),*(*(colors+c)+9),*(*(colors+c)+10),*(*(colors+c)+11),
-											*(*(colors+c)+12));
+							       				*(*(colors+c)+12));*/
 			//memcpy'ing the color buffer to the strings grow and crow
 			//Note that we skip the null character
 			memcpy(grow+12*m2,buffer,12);
 			memcpy(crow+12*m2,*(colors+c),12);
-			//printf("at m2 = %d and grow=%s\n",m2,grow);
-			//printf("at m2 = %d and crow=%s\n",m2,crow);
+			//DEBUG printf("at m2 = %d and grow=%s\n",m2,grow);
+			//DEBUG printf("at m2 = %d and crow=%s\n",m2,crow);
 			iter = 0;
 		}
 		//Concatening a line break to the row we're at
-		//Note that strcat automatically appends the null character
-		strcat(grow,"\n");
-		strcat(crow,"\n");
-		printf("grow = %s",grow);
-		printf("crow = %s",crow);
+			//Was
+			//strcat(grow,"\n");
+			//strcat(crow,"\n");
+			//but this creates a lot of null characters ^@, and that's not nice
+		sprintf(buffer,"\n");
+		memcpy(grow+12*lines,buffer,1);
+		memcpy(crow+12*lines,buffer,1);
+		//DEBUG printf("grow = %s",grow);
+		//DEBUG printf("crow = %s",crow);
 		gi[m1]=grow;
 		ci[m1]=crow;
 		//Stealing this directly from Martin's lecture
 		pthread_mutex_lock(&mutex_item_done);
 		item_done[m1]=1;
 		pthread_mutex_unlock(&mutex_item_done);
-	}
-	/*gsl_complex x, xprev;
-	for(size_t flati=0; flati < lines*(lines/nthreads); ++flati){
-		m2 = flati % lines;
-		m1 = t+(flati/lines)*nthreads;
-		xc = -2+4*m2/linesd+4/(2*linesd);
-		yc = -2+4*(linesd-1-m1)/linesd+4/(2*linesd);
-		xprev = gsl_complex_rect(xc,yc);
-		x = gsl_complex_add(gsl_complex_mul_real(xprev,0.8),gsl_complex_mul_real(gsl_complex_inverse(X4),0.2));
-		while((c=isclose5(x))==0 && gsl_complex_abs2(x)>=1e-6 && GSL_REAL(x)<1e10 && GSL_IMAG(x)<1e10){
-			xprev=x;
-			x = gsl_complex_add(gsl_complex_mul_real(xprev,0.8),gsl_complex_mul_real(gsl_complex_inverse(X4),0.2));
-			iter++;
-		}
-		gi[m1][m2]= (unsigned char) iter % GLEVELS;
-		ci[m1][m2]= colors[c];
-		iter = 0;
-	}*/
+	}	
 }
 /*
 //FIXME
@@ -357,10 +346,8 @@ void *write(void *arg){
 		for( ; ix < lines && item_done_loc[ix] != 0; ++ix){
 			gresult=gi[ix];
 			cresult=ci[ix];
-			//for(size_t j = 0; j < 3*lines; ++j)
-			//	printf("g: %c\nc: %c\n",gresult[j],cresult[j]);
-			fwrite(gresult,lines*3,1,gfile);
-			fwrite(cresult,lines*3,1,cfile);
+			fwrite(gresult,lines*12+1,1,gfile);
+			fwrite(cresult,lines*12+1,1,cfile);
 			free(gresult);
 			free(cresult);
 		}
