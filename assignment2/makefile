@@ -2,7 +2,7 @@
 
 TARGETS = newton newton_debug
 
-CFLAGS = -std=c11 -march=native -O3
+CFLAGS = -march=native -O3 #seems that -std=c11 takes away nanosleep
 HEADS = -I/home/tobias/local_gsl/include
 LIBS = -L/home/tobias/local_gsl/lib
 lIBS = -lgsl -lgslcblas -lm -lpthread
@@ -17,3 +17,4 @@ newton_debug:
 
 clean :
 	rm -f $(TARGETS)
+	rm -f *.ppm

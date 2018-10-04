@@ -1,6 +1,6 @@
 .PHONY : all check clean
 
-TARGETS = newton_draft1
+TARGETS = newton_draft1 newton_draft2
 
 CFLAGS = -std=c11 -march=native -O3
 HEADS = -I/home/tobias/local_gsl/include
@@ -11,5 +11,7 @@ all : $(TARGETS)
 
 newton_draft1 : newton_draft1.c
 	gcc $(CFLAGS) $(HEADS) $(LIBS) -o newton_draft1 newton_draft1.c $(lIBS)
+newton_draft2 : newton_draft2.c
+	gcc $(CFLAGS) $(HEADS) $(LIBS) -o newton_draft2 newton_draft2.c $(lIBS)
 clean :
 	rm -f $(TARGETS)

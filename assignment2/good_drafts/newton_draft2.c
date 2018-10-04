@@ -231,7 +231,7 @@ void n5(int t){
 			x = gsl_complex_add(gsl_complex_mul_real(xprev,0.8),gsl_complex_mul_real(gsl_complex_inverse(X4),0.2));
 			iter++;
 		}
-		gi[m1][m2]= (unsigned char) iter % GLEVELS;
+		gi[m1][m2]= (unsigned char) iter *10 % GLEVELS;
 		ci[m1][m2]= colors[c];
 		iter = 0;
 	}
