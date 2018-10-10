@@ -45,11 +45,22 @@ int main(int argc, char *argv[]) {
 		return 0;
 	}
 	else {
-		n_threads = (int) strtol(argv[1] + 2, NULL, 10);
-		gridsize = (int) strtol(argv[2] + 2, NULL, 10);
-		d = (int) strtol(argv[3], NULL, 10);
+        if (argv[1][1] == 't' && argv[2][1] == 'l') {
+            n_threads = (int) strtol(argv[1] + 2, NULL, 10);
+            gridsize = (int) strtol(argv[2] + 2, NULL, 10);
+            d = (int) strtol(argv[3], NULL, 10);
+        }
+        else if (argv[1][1] == 'l' && argv[2][1] == 't') {
+            gridsize = (int) strtol(argv[1] + 2, NULL, 10);
+            n_threads = (int) strtol(argv[2] + 2, NULL, 10);
+            d = (int) strtol(argv[3], NULL, 10);
+        }
+        else {
+            printf("Wrong input format.\n");
+            return 0;
+        }
 	}
-
+    
 	// initialize matrices
     int *identries = (int*) malloc(sizeof(int) * gridsize * gridsize);
     rootIds = (int**) malloc(sizeof(int*) * gridsize);
@@ -129,29 +140,20 @@ void* root_runner(void *restrict arg) {
     int startrow = * ((int*) arg);
     free(arg);
     double complex x0;
-    int *loc_it = (int*) malloc(sizeof(int) * gridsize);
-    int *loc_rootId = (int*) malloc(sizeof(int) * gridsize);
     
     // pick rows and calculate the roots for whole row
     for (size_t ix = startrow; ix < gridsize; ix += n_threads) {
         for (size_t jx = 0; jx < gridsize; ++ jx) {
             x0 = (-SIZE + (double) (jx * 2*SIZE) / (double) (gridsize-1)) + \
                 I * (SIZE - (double) (ix * 2*SIZE) / (double) (gridsize-1));
-            find_root(loc_it + jx, loc_rootId + jx, x0);
+            find_root(&(iterations[ix][jx]), &(rootIds[ix][jx]), x0);
         }
-        
-        // copy calculated file in output
-        memcpy(iterations[ix], loc_it, gridsize * sizeof(int));
-        memcpy(rootIds[ix], loc_rootId, gridsize * sizeof(int));
         
         // mark row as done so that it can be written in the file
         pthread_mutex_lock(&mutex);
         finished[ix] = true;
         pthread_mutex_unlock(&mutex);
     }
-
-    free(loc_it);
-    free(loc_rootId);
     
     pthread_exit(NULL);
     
@@ -163,17 +165,21 @@ void* root_runner(void *restrict arg) {
 void* write_runner(void *restrict arg) {
     
     // initialize
-    char colors[8][12] = {"0 0 255", "255 0 0", "0 255 0", "255 255 0", \
-        "255 0 255", "0 255 255", "255 255 255"};
+    char colors[10][12] = {"000 000 255 ", "255 000 000 ", "000 255 000 ", "255 255 000 ", \
+        "255 000 255 ", "000 255 255 ", "255 255 255 ", "000 000 000 ", "125 000 125 ", \
+        "000 125 000 "
+    };
     int ix = 0;
     bool *done = malloc(sizeof(bool));
-    int *loc_it = (int*) malloc(sizeof(int) * gridsize);
-    int *loc_rootId = (int*) malloc(sizeof(int) * gridsize);
+    char *entry;
     
     // open files
     FILE *convergence, *attractors;
-    convergence = fopen("newton_convergence_xd.ppm", "w");
-    attractors = fopen("newton_attractors_xd.ppm", "w");
+    char nameConv[25], nameAttr[25];
+    sprintf(nameConv, "newton_convergence_x%i.ppm", d);
+    sprintf(nameAttr, "newton_attractors_x%i.ppm", d);
+    convergence = fopen(nameConv, "w");
+    attractors = fopen(nameAttr, "w");
     
     // write beginning for ppm file
     fprintf(convergence, "P3\n%i %i\n%i\n", gridsize, gridsize, 150);
@@ -184,20 +190,16 @@ void* write_runner(void *restrict arg) {
 
         // check if computation thread has finished row ix
         pthread_mutex_lock(&mutex);
-        finished[ix] = *done;
+        *done = finished[ix];
         pthread_mutex_unlock(&mutex);
 
         // if yes write row in files
         if (*done == true) {
             
-            // copy row to write in local array
-            memcpy(loc_it, iterations[ix], gridsize * sizeof(int));
-            memcpy(loc_rootId, rootIds[ix], gridsize * sizeof(int));
-            
             for (size_t jx = 0; jx < gridsize; ++jx) {
-                fprintf(attractors, "%s ", colors[loc_rootId[jx]]);
-                fprintf(convergence, "%i %i %i ", loc_it[jx], \
-                        loc_it[jx], loc_it[jx]);
+                fwrite(colors[rootIds[ix][jx]], sizeof(char), 12, attractors);
+                fprintf(convergence, "%i %i %i ", iterations[ix][jx], \
+                        iterations[ix][jx], iterations[ix][jx]);
             }
             fprintf(attractors, "\n");
             fprintf(convergence, "\n");
@@ -205,7 +207,7 @@ void* write_runner(void *restrict arg) {
         }
         // if not wait a bit and try again
         else {
-            nanosleep((const struct timespec[]){{0, 1000000L}}, NULL);
+            nanosleep((const struct timespec[]){{0, 100000L}}, NULL);
             continue;
         }
     }
@@ -216,8 +218,6 @@ void* write_runner(void *restrict arg) {
     
     // free variables
     free(done);
-    free(loc_it);
-    free(loc_rootId);
     
     pthread_exit(NULL);
 }
