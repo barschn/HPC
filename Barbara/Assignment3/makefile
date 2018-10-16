@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Os -std=c11 -Wall -g -march=native -fopenmp 
+CFLAGS = -O3 -std=c11 -Wall -g -march=native -fopenmp 
 LIBRARIES = -lm 
 
 .PHONY : cell_distance
